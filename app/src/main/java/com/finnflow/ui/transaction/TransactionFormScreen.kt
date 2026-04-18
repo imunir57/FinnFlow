@@ -13,7 +13,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.TransactionType
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -121,9 +123,11 @@ fun TypeSelector(selectedType: TransactionType, onTypeSelected: (TransactionType
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateField(date: LocalDate, onDateChange: (LocalDate) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
         onValueChange = {},
@@ -134,7 +138,28 @@ fun DateField(date: LocalDate, onDateChange: (LocalDate) -> Unit) {
             TextButton(onClick = { showPicker = true }) { Text("Change") }
         }
     )
-    // DatePickerDialog would be integrated here in a full implementation
+
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        onDateChange(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
+                    }
+                    showPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
