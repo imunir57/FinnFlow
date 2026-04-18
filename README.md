@@ -1,6 +1,15 @@
 # FinnFlow
 
-A personal finance Android app built with Jetpack Compose, Room, and Hilt.
+FinnFlow is a personal finance tracker for Android. It lets you log income and expenses, organize spending by category, and visualize where your money goes — all stored locally with no account required.
+
+## Features
+
+- **Transaction tracking** — Log income, expenses, and transfers with amount, date, category, subcategory, and notes
+- **Categories & subcategories** — 23 built-in categories (Food & Dining, Housing, Health, Salary, etc.) with subcategories; fully customizable
+- **Monthly dashboard** — Daily grouped transaction history with income, expense, and balance totals; navigate across months
+- **Stats & charts** — Donut chart with category breakdown, percentages, and transaction counts; filter by income or expense
+- **Yearly overview** — Month-by-month income/expense table for the full year
+- **Offline-first** — All data stored locally via Room/SQLite; no sync, no account needed
 
 ## Tech stack
 
@@ -15,66 +24,23 @@ A personal finance Android app built with Jetpack Compose, Room, and Hilt.
 | Charts | Vico |
 | Testing | JUnit4 · MockK · Turbine · Room in-memory |
 
-## Project structure
-
-```
-app/src/main/java/com/finnflow/
-├── data/
-│   ├── db/           # AppDatabase, Converters, DAOs, Entities
-│   ├── model/        # Domain models (Transaction, Category, SubCategory)
-│   └── repository/   # Repository interfaces + implementations
-├── di/               # Hilt modules (DatabaseModule, RepositoryModule)
-├── ui/
-│   ├── components/   # BottomNavBar
-│   ├── home/         # HomeScreen + HomeViewModel
-│   ├── stats/        # StatsScreen + StatsViewModel
-│   ├── transaction/  # TransactionFormScreen + TransactionViewModel
-│   ├── category/     # CategoryScreen + SubCategoryScreen + CategoryViewModel
-│   ├── yearly/       # YearlyScreen + YearlyViewModel
-│   └── theme/        # Material 3 theme
-├── MainActivity.kt
-├── FinnFlowApp.kt
-└── Navigation.kt
-```
-
-## Running tests
+## Build
 
 ```bash
-# Unit tests
-./gradlew test
-
-# Instrumented tests (requires connected device or emulator)
-./gradlew connectedAndroidTest
-
-# Test coverage report
-./gradlew testDebugUnitTestCoverage
+./gradlew assembleDebug     # Debug APK
+./gradlew assembleRelease   # Release APK (minified via ProGuard)
 ```
 
-## Building
+## Test
 
 ```bash
-# Debug build
-./gradlew assembleDebug
-
-# Release build
-./gradlew assembleRelease
+./gradlew test                          # Unit tests
+./gradlew connectedAndroidTest          # Instrumented tests (requires device/emulator)
+./gradlew testDebugUnitTestCoverage     # Coverage report
 ```
 
-## Database schema (v1)
+Run a single test class:
 
+```bash
+./gradlew test --tests "com.finnflow.FullyQualifiedClassName"
 ```
-transactions  ──FK──▶  categories  ◀──FK──  sub_categories
-    id                     id                    id
-    type                   name                  categoryId
-    amount                 type                  name
-    date                   iconName
-    categoryId             colorHex
-    subCategoryId (null)
-    note
-    fromAccountId (null)   ← reserved for account integration
-    toAccountId   (null)   ← reserved for account integration
-```
-
-## Roadmap
-
-See [CHANGELOG.md](CHANGELOG.md) — Unreleased section.
