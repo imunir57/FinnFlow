@@ -56,7 +56,7 @@ fun TransactionFormScreen(
                 onValueChange = viewModel::onAmountChange,
                 label = { Text("Amount") },
                 isError = state.amountError != null,
-//                supportingText = { state.amountError?.let { Text(it) } },
+                supportingText = { state.amountError?.let { Text(it) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true

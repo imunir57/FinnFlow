@@ -28,7 +28,12 @@ data class TransactionFormState(
     val isSaved: Boolean = false,
     val error: String? = null
 ) {
-    val amountError get() = null//amount.toDoubleOrNull()?.let { if (it <= 0) "Amount must be positive" else null } ?: if (amount.isNotEmpty()) "Invalid amount" else null
+    val amountError get() = when {
+        amount.isEmpty() -> null
+        amount.toDoubleOrNull() == null -> "Invalid amount"
+        amount.toDouble() <= 0 -> "Amount must be positive"
+        else -> null
+    }
     val isValid get() = amountError == null && amount.isNotEmpty() && categoryId != null
 }
 
