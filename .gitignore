@@ -1,0 +1,24 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android
+/app/build
+/app/release
+
+# Kotlin
+*.kotlin_module
+
+# Generated files
+app/src/main/assets/databases/
+
+# Keystore
+*.jks
+*.keystore

@@ -1,0 +1,3 @@
+-keep class com.moneymanager.data.db.entity.** { *; }
+-keep class com.moneymanager.data.model.** { *; }
+-keepattributes *Annotation*
