@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,7 +103,7 @@ fun HomeScreen(
                     )
                 }
                 IconButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Default.MoreVert, "Settings", tint = InkMedium)
+                    Icon(Icons.Default.Settings, "Settings", tint = InkMedium)
                 }
             }
 
