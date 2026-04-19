@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FinnFlow — Android</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper:   oklch(0.985 0.006 85);   /* warm off-white */
+    --paper-2: oklch(0.975 0.007 85);
+    --card:    oklch(0.965 0.008 85);
+    --rule:    oklch(0.88 0.008 80);
+    --ink:     oklch(0.22 0.012 60);
+    --ink-2:   oklch(0.36 0.012 60);
+    --ink-3:   oklch(0.55 0.01 60);
+    --ink-4:   oklch(0.78 0.008 60);
+    --ink-wash: oklch(0.93 0.008 80);
+    --pos:     oklch(0.48 0.09 155);     /* forest green */
+    --neg:     oklch(0.52 0.13 35);      /* terracotta */
+  }
+  html, body {
+    margin: 0; padding: 0; min-height: 100%;
+    background:
+      radial-gradient(1200px 700px at 20% 10%, oklch(0.96 0.015 75) 0%, transparent 60%),
+      radial-gradient(900px 600px at 80% 90%, oklch(0.95 0.018 140) 0%, transparent 55%),
+      oklch(0.94 0.01 80);
+    font-family: Geist, system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+  }
+  body {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 16px 80px;
+  }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+  button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .stage-wrap {
+    width: 100%; max-width: 1480px;
+  }
+  .stage-header {
+    display: flex; align-items: baseline; gap: 16px;
+    margin-bottom: 6px;
+  }
+  .stage-title {
+    font-family: 'Newsreader', serif;
+    font-size: 42px; letter-spacing: -0.5px;
+    color: var(--ink); font-weight: 400;
+  }
+  .stage-sub {
+    font-size: 13px; color: var(--ink-3);
+    letter-spacing: 0.2px;
+  }
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 44px 32px;
+    justify-items: center;
+    margin-top: 36px;
+  }
+  .screen-cell { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .screen-label {
+    font-family: Geist, system-ui; font-size: 11px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 600;
+  }
+  .screen-title {
+    font-family: 'Newsreader', serif; font-size: 20px; color: var(--ink);
+    letter-spacing: -0.2px;
+  }
+  .screen-caption { font-size: 12px; color: var(--ink-3); max-width: 340px; text-align: center; line-height: 1.5; }
+
+  /* Tweaks panel */
+  .tweaks {
+    position: fixed; right: 24px; bottom: 24px; width: 300px;
+    background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 16px; padding: 16px; z-index: 100;
+    box-shadow: 0 14px 40px rgba(42,38,33,0.18);
+    display: none; font-family: Geist, system-ui;
+  }
+  .tweaks.open { display: block; }
+  .tweaks h3 {
+    margin: 0 0 12px; font-family: 'Newsreader', serif; font-size: 18px;
+    font-weight: 400; letter-spacing: -0.2px;
+  }
+  .tweaks label { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 1px; }
+  .tweaks-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tweaks-row button {
+    border: 1px solid var(--rule); background: var(--card); cursor: pointer;
+    border-radius: 999px; padding: 6px 10px; font-family: Geist, system-ui;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .tweaks-row button.active {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  }
+</style>
+</head>
+<body>
+  <div class="stage-wrap">
+    <div class="stage-header">
+      <div class="stage-title">FinnFlow</div>
+      <div class="stage-sub">Money manager · Android · Apr 19 2026 · paper-ledger aesthetic</div>
+    </div>
+
+    <div id="root"></div>
+  </div>
+
+  <div class="tweaks" id="tweaks">
+    <h3>Tweaks</h3>
+    <label>Currency symbol</label>
+    <div class="tweaks-row" id="tw-currency">
+      <button data-v="৳">৳ BDT</button>
+      <button data-v="₹">₹ INR</button>
+      <button data-v="$">$ USD</button>
+      <button data-v="€">€ EUR</button>
+      <button data-v="£">£ GBP</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="icons.jsx"></script>
+  <script type="text/babel" src="frame.jsx"></script>
+  <script type="text/babel" src="screen-home.jsx"></script>
+  <script type="text/babel" src="screen-stats.jsx"></script>
+  <script type="text/babel" src="screen-add.jsx"></script>
+
+  <script type="text/babel">
+    // ── Tweak defaults ─────────────────────────────────────
+    const TWEAKS = /*EDITMODE-BEGIN*/{
+      "currency": "৳"
+    }/*EDITMODE-END*/;
+
+    function App() {
+      const [currency, setCurrency] = React.useState(TWEAKS.currency);
+      const [homeVariant, setHomeVariant] = React.useState('hero');  // 'hero' | 'ledger' (per-device)
+      const [addVariant,  setAddVariant]  = React.useState('keypad');
+
+      // nav state per device so devices work independently
+      const [dev1Tab, setDev1Tab] = React.useState('home');
+      const [dev2Tab, setDev2Tab] = React.useState('home');
+      const [statsCat, setStatsCat] = React.useState(null); // if set, show CategoryStats on stats device
+
+      // edit mode wiring
+      React.useEffect(() => {
+        const onMsg = (e) => {
+          if (e.data?.type === '__activate_edit_mode') {
+            document.getElementById('tweaks').classList.add('open');
+          } else if (e.data?.type === '__deactivate_edit_mode') {
+            document.getElementById('tweaks').classList.remove('open');
+          }
+        };
+        window.addEventListener('message', onMsg);
+        window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+        // wire currency buttons
+        const row = document.getElementById('tw-currency');
+        const sync = () => {
+          [...row.children].forEach(b => b.classList.toggle('active', b.dataset.v === currency));
+        };
+        sync();
+        row.onclick = (e) => {
+          const v = e.target.closest('button')?.dataset.v;
+          if (!v) return;
+          setCurrency(v);
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { currency: v } }, '*');
+        };
+
+        return () => window.removeEventListener('message', onMsg);
+      }, [currency]);
+
+      return (
+        <div className="stage-grid">
+          {/* HOME — VARIATION A: HERO */}
+          <div className="screen-cell">
+            <Device
+              currentTab={dev1Tab}
+              onTabChange={(t) => setDev1Tab(t)}
+              fab onFab={() => setDev1Tab('add')}
+            >
+              {dev1Tab === 'home' && <HomeHero currency={currency} txs={TX} />}
+              {dev1Tab === 'stats' && (
+                statsCat
+                  ? <CategoryStatsScreen category={statsCat} currency={currency} onBack={() => setStatsCat(null)} />
+                  : <StatsScreen currency={currency} onOpenCategory={setStatsCat} />
+              )}
+              {dev1Tab === 'yearly' && <Placeholder label="Yearly" />}
+              {dev1Tab === 'settings' && <Placeholder label="Settings" />}
+              {dev1Tab === 'add' && <AddTransactionScreen currency={currency} onCancel={() => setDev1Tab('home')} onSave={() => setDev1Tab('home')} />}
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Home · variation A</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Hero balance</div>
+            </div>
+            <div className="screen-caption">
+              Newsreader serif for the balance, income/expense as secondary dots. Day groups use large day numeral + weekday caption. Tap a row to edit.
+            </div>
+          </div>
+
+          {/* STATS */}
+          <div className="screen-cell">
+            <Device showNav={false}
+              customBottom={<BottomNav current="stats" onChange={() => {}} />}
+            >
+              <StatsScreen currency={currency} onOpenCategory={() => {}} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Stats</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Category breakdown</div>
+            </div>
+            <div className="screen-caption">
+              Month / Year / Custom tabs, in-row range stepper, Expense / Income pill toggle. Donut + category list with colored tracks showing share of total.
+            </div>
+          </div>
+
+          {/* CATEGORY STATS */}
+          <div className="screen-cell">
+            <Device showNav={false}
+              customBottom={<BottomNav current="stats" onChange={() => {}} />}
+            >
+              <CategoryStatsScreen
+                category={EXPENSE_CATS[0]}   /* Food & Dining */
+                currency={currency}
+                onBack={() => {}}
+              />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Category Stats</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Food &amp; Dining · sub-categories</div>
+            </div>
+            <div className="screen-caption">
+              Same structure as Stats but scoped to one category. Summary triptych (spent / txns / avg) and a donut tinted in shades of the category color.
+            </div>
+          </div>
+
+          {/* ADD TRANSACTION — variation A (keypad) */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<div />}>
+              <AddTransactionScreen currency={currency} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Add transaction · variation A</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>All-in-one with keypad</div>
+            </div>
+            <div className="screen-caption">
+              Zero dropdowns. Everything is chips: date, category, sub-category. Serif amount fills the hero. Custom in-screen keypad means the OS keyboard never comes up.
+            </div>
+          </div>
+
+        </div>
+      );
+    }
+
+    function Placeholder({ label }) {
+      return (
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Newsreader, serif', fontSize: 22, color: 'var(--ink-3)',
+        }}>{label}</div>
+      );
+    }
+
+    // ── Variation B of Add: no keypad, quick chips + stepper ──
+    function AddTransactionCompact({ currency }) {
+      const [type, setType] = React.useState('EXPENSE');
+      const [amount, setAmount] = React.useState(500);
+      const [dateIdx, setDateIdx] = React.useState(0);
+      const [catId, setCatId] = React.useState(1);
+      const [subName, setSubName] = React.useState('Restaurant');
+      const [note, setNote] = React.useState('');
+
+      const cats = type === 'EXPENSE' ? EXPENSE_CATS : INCOME_CATS;
+      const cat = cats.find(c => c.id === catId) || cats[0];
+      React.useEffect(() => {
+        if (!cats.find(c => c.id === catId)) { setCatId(cats[0].id); setSubName(null); }
+      }, [type]);
+
+      const quickAmounts = [100, 500, 1000, 5000];
+      const today = new Date('2026-04-19T00:00:00');
+      const dateChips = [
+        { id: 0, label: 'Today',     sub: fmtDay(today, 0) },
+        { id: 1, label: 'Yesterday', sub: fmtDay(today, -1) },
+        { id: 2, label: fmtWday(today, -2), sub: fmtDay(today, -2) },
+        { id: 3, label: fmtWday(today, -3), sub: fmtDay(today, -3) },
+      ];
+
+      return (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px 4px',
+          }}>
+            <IconButton><Ic.x size={22} /></IconButton>
+            <div style={{ fontFamily: 'Geist, system-ui', fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
+              New transaction
+            </div>
+            <button style={{
+              border: 0, background: 'var(--ink)', color: 'var(--paper)',
+              padding: '8px 14px', borderRadius: 999,
+              fontFamily: 'Geist, system-ui', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}>Save</button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', padding: '6px 18px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 14px' }}>
+              <Segmented value={type} onChange={setType}
+                items={[{id:'EXPENSE',label:'Expense'},{id:'INCOME',label:'Income'}]} />
+            </div>
+
+            {/* Amount + stepper */}
+            <div style={{
+              display: 'flex', justifyContent: 'center', alignItems: 'baseline',
+              gap: 6, padding: '4px 0 4px',
+            }}>
+              <span style={{ fontFamily: 'Newsreader, serif', fontSize: 28, color: 'var(--ink-3)' }}>{currency}</span>
+              <span style={{
+                fontFamily: 'Newsreader, serif', fontVariantNumeric: 'tabular-nums',
+                fontSize: 58, lineHeight: 1, color: type === 'INCOME' ? 'var(--pos)' : 'var(--ink)',
+                letterSpacing: -1,
+              }}>{amount.toLocaleString('en-IN')}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '14px 0 4px' }}>
+              <StepBtn onClick={() => setAmount(a => Math.max(0, a - 100))}>−100</StepBtn>
+              <StepBtn onClick={() => setAmount(a => Math.max(0, a - 10))}>−10</StepBtn>
+              <StepBtn onClick={() => setAmount(a => a + 10)}>+10</StepBtn>
+              <StepBtn onClick={() => setAmount(a => a + 100)}>+100</StepBtn>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, paddingBottom: 18, flexWrap: 'wrap' }}>
+              {quickAmounts.map(q => (
+                <button key={q} onClick={() => setAmount(q)}
+                  style={{
+                    border: '1px solid var(--rule)', background: amount === q ? 'var(--ink)' : 'var(--card)',
+                    color: amount === q ? 'var(--paper)' : 'var(--ink-2)',
+                    padding: '6px 14px', borderRadius: 999,
+                    fontFamily: 'Geist Mono, ui-monospace, monospace', fontSize: 12,
+                    cursor: 'pointer',
+                  }}>
+                  {currency}{q.toLocaleString('en-IN')}
+                </button>
+              ))}
+            </div>
+
+            <FieldLabel>Date</FieldLabel>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, margin: '0 -18px', padding: '0 18px 4px' }}>
+              {dateChips.map(d => (
+                <Chip key={d.id} active={dateIdx === d.id} onClick={() => setDateIdx(d.id)} column>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{d.label}</span>
+                  <span style={{ fontSize: 10.5, opacity: 0.7 }}>{d.sub}</span>
+                </Chip>
+              ))}
+              <Chip active={dateIdx === 4} onClick={() => setDateIdx(4)} column>
+                <Ic.calendar size={16} />
+                <span style={{ fontSize: 10.5, opacity: 0.7 }}>Pick</span>
+              </Chip>
+            </div>
+
+            <FieldLabel style={{ marginTop: 18 }}>Category</FieldLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {cats.map(c => {
+                const I = Ic[c.icon] || Ic.dots;
+                const active = c.id === catId;
+                return (
+                  <button key={c.id} onClick={() => { setCatId(c.id); setSubName(null); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '8px 12px 8px 10px',
+                      borderRadius: 999,
+                      border: active ? '1.5px solid ' + c.color : '1px solid var(--rule)',
+                      background: active ? c.color + '14' : 'var(--paper)',
+                      color: active ? c.color : 'var(--ink-2)',
+                      cursor: 'pointer',
+                      fontFamily: 'Geist, system-ui', fontSize: 13,
+                      fontWeight: active ? 600 : 500,
+                    }}>
+                    <div style={{
+                      width: 20, height: 20, borderRadius: 6,
+                      background: c.color + (active ? '22' : '14'),
+                      color: c.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}><I size={13} /></div>
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            <FieldLabel style={{ marginTop: 18 }}>Sub-category</FieldLabel>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+              {cat.subs.map(s => {
+                const active = s === subName;
+                return (
+                  <button key={s} onClick={() => setSubName(s)} style={{
+                    padding: '7px 12px', borderRadius: 999,
+                    border: active ? '1.5px solid var(--ink)' : '1px solid var(--rule)',
+                    background: active ? 'var(--ink)' : 'var(--paper)',
+                    color: active ? 'var(--paper)' : 'var(--ink-2)',
+                    cursor: 'pointer',
+                    fontFamily: 'Geist, system-ui', fontSize: 12.5,
+                    fontWeight: active ? 600 : 500,
+                  }}>{s}</button>
+                );
+              })}
+            </div>
+
+            <FieldLabel style={{ marginTop: 18 }}>Note <span style={{ opacity: 0.6, textTransform: 'none', letterSpacing: 0 }}>— optional</span></FieldLabel>
+            <input
+              value={note} onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. Lunch with team"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '12px 14px',
+                border: '1px solid var(--rule)',
+                borderRadius: 12,
+                background: 'var(--card)',
+                fontFamily: 'Geist, system-ui', fontSize: 14,
+                color: 'var(--ink)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    function StepBtn({ children, onClick }) {
+      return (
+        <button onClick={onClick} style={{
+          border: '1px solid var(--rule)', background: 'var(--card)',
+          padding: '8px 12px', borderRadius: 10,
+          fontFamily: 'Geist Mono, ui-monospace, monospace', fontSize: 12,
+          color: 'var(--ink-2)', cursor: 'pointer',
+          minWidth: 54,
+        }}>{children}</button>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
