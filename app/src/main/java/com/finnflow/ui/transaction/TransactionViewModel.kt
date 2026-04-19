@@ -19,6 +19,7 @@ data class TransactionFormState(
     val type: TransactionType = TransactionType.EXPENSE,
     val amount: String = "",
     val date: LocalDate = LocalDate.now(),
+    val dateChipIndex: Int = 0,
     val categoryId: Long? = null,
     val subCategoryId: Long? = null,
     val note: String = "",
@@ -95,7 +96,32 @@ class TransactionViewModel @Inject constructor(
     }
 
     fun onAmountChange(amount: String) = _state.update { it.copy(amount = amount) }
-    fun onDateChange(date: LocalDate) = _state.update { it.copy(date = date) }
+
+    fun onAmountDigit(digit: String) = _state.update { s ->
+        val current = s.amount
+        val next = when {
+            current.isEmpty() || current == "0" -> digit
+            else -> current + digit
+        }
+        s.copy(amount = next)
+    }
+
+    fun onAmountBackspace() = _state.update { s ->
+        s.copy(amount = s.amount.dropLast(1))
+    }
+
+    fun onDateChipChange(index: Int) {
+        val today = LocalDate.now()
+        val newDate = when (index) {
+            0    -> today
+            1    -> today.minusDays(1)
+            2    -> today.minusDays(2)
+            else -> _state.value.date
+        }
+        _state.update { it.copy(dateChipIndex = index, date = newDate) }
+    }
+
+    fun onDateChange(date: LocalDate) = _state.update { it.copy(date = date, dateChipIndex = 3) }
     fun onNoteChange(note: String) = _state.update { it.copy(note = note) }
 
     fun onCategoryChange(categoryId: Long) {

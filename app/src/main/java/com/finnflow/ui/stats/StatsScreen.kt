@@ -269,7 +269,7 @@ private fun DonutChartSection(
     totalAmount: Double,
     percentOf: (Double) -> Int
 ) {
-    val strokeWidth = 52f
+    val strokeWidth = 120f
     val chartSize = 220.dp
 
     Box(
