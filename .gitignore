@@ -22,3 +22,6 @@ app/src/main/assets/databases/
 # Keystore
 *.jks
 *.keystore
+
+# Claude Code
+.claude/settings.local.json
