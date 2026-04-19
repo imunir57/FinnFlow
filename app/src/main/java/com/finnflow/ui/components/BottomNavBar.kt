@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 //import androidx.compose.material.icons.filled.BarChart
 //import androidx.compose.material.icons.filled.CalendarViewYear
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -20,7 +19,6 @@ val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, "Home", Icons.Default.Home),
     BottomNavItem(Screen.Stats, "Stats", Icons.Default.Star),
     BottomNavItem(Screen.Yearly, "Yearly", Icons.Default.ShoppingCart),
-    BottomNavItem(Screen.Settings, "Settings", Icons.Default.Settings)
 )
 
 @Composable

@@ -14,6 +14,7 @@ import com.finnflow.ui.category.CategoryScreen
 import com.finnflow.ui.category.SubCategoryScreen
 import com.finnflow.ui.components.BottomNavBar
 import com.finnflow.ui.home.HomeScreen
+import com.finnflow.ui.settings.SettingsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
 import com.finnflow.ui.stats.StatsScreen
 import com.finnflow.ui.transaction.TransactionFormScreen
@@ -74,6 +75,12 @@ fun MainNavHost() {
             composable(Screen.Yearly.route) { YearlyScreen() }
 
             composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onNavigateToCategories = { navController.navigate(Screen.Categories.route) }
+                )
+            }
+
+            composable(Screen.Categories.route) {
                 CategoryScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToSubCategories = { catId ->
