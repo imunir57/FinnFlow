@@ -92,6 +92,54 @@ class StatsViewModel @Inject constructor(
         _params.update { it.copy(selectedType = type) }
     }
 
+    fun previousPeriod() {
+        _params.update { p ->
+            when (p.period) {
+                StatsPeriod.MONTHLY -> {
+                    val ym = YearMonth.from(p.from).minusMonths(1)
+                    p.copy(from = ym.atDay(1), to = ym.atEndOfMonth())
+                }
+                StatsPeriod.ANNUALLY -> {
+                    val y = p.from.year - 1
+                    p.copy(from = LocalDate.of(y, 1, 1), to = LocalDate.of(y, 12, 31))
+                }
+                StatsPeriod.CUSTOM -> p
+            }
+        }
+    }
+
+    fun nextPeriod() {
+        _params.update { p ->
+            when (p.period) {
+                StatsPeriod.MONTHLY -> {
+                    val ym = YearMonth.from(p.from).plusMonths(1)
+                    p.copy(from = ym.atDay(1), to = ym.atEndOfMonth())
+                }
+                StatsPeriod.ANNUALLY -> {
+                    val y = p.from.year + 1
+                    p.copy(from = LocalDate.of(y, 1, 1), to = LocalDate.of(y, 12, 31))
+                }
+                StatsPeriod.CUSTOM -> p
+            }
+        }
+    }
+
+    fun onPickedDate(date: LocalDate) {
+        _params.update { p ->
+            when (p.period) {
+                StatsPeriod.MONTHLY -> {
+                    val ym = YearMonth.from(date)
+                    p.copy(from = ym.atDay(1), to = ym.atEndOfMonth())
+                }
+                StatsPeriod.ANNUALLY -> {
+                    val y = date.year
+                    p.copy(from = LocalDate.of(y, 1, 1), to = LocalDate.of(y, 12, 31))
+                }
+                StatsPeriod.CUSTOM -> p
+            }
+        }
+    }
+
     val currentFrom: LocalDate get() = _params.value.from
     val currentTo: LocalDate get() = _params.value.to
     val currentType: TransactionType get() = _params.value.selectedType
