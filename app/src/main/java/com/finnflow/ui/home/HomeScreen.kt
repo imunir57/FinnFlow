@@ -86,7 +86,7 @@ fun HomeScreen(
                         .background(IncomeGreen),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("MN", color = WarmPaper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(state.initials, color = WarmPaper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -97,7 +97,7 @@ fun HomeScreen(
                         letterSpacing = 0.3.sp
                     )
                     Text(
-                        "Munir",
+                        state.displayName.ifBlank { "there" },
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground

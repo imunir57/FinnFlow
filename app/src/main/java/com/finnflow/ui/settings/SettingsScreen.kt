@@ -21,7 +21,8 @@ import com.finnflow.ui.theme.WarmPaper
 
 @Composable
 fun SettingsScreen(
-    onNavigateToCategories: () -> Unit
+    onNavigateToCategories: () -> Unit,
+    onNavigateToProfile: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -47,7 +48,7 @@ fun SettingsScreen(
 
         SettingsRow(title = "Categories", subtitle = "Manage income & expense categories", onClick = onNavigateToCategories)
         HorizontalDivider(color = Rule)
-        SettingsRow(title = "Profile", subtitle = "Your personal information", onClick = {})
+        SettingsRow(title = "Profile", subtitle = "Your personal information", onClick = onNavigateToProfile)
         HorizontalDivider(color = Rule)
         SettingsRow(title = "Currency", subtitle = "Set your preferred currency", onClick = {})
         HorizontalDivider(color = Rule)
