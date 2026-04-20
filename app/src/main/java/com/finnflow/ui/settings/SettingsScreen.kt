@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,6 +22,7 @@ import com.finnflow.ui.theme.WarmPaper
 
 @Composable
 fun SettingsScreen(
+    onBack: () -> Unit = {},
     onNavigateToCategories: () -> Unit,
     onNavigateToProfile: () -> Unit = {}
 ) {
@@ -32,9 +34,12 @@ fun SettingsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
+                .padding(start = 4.dp, end = 18.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = InkMedium)
+            }
             Text(
                 "Settings",
                 fontFamily = FontFamily.Serif,
@@ -43,7 +48,6 @@ fun SettingsScreen(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = Rule)
 
         SettingsRow(title = "Categories", subtitle = "Manage income & expense categories", onClick = onNavigateToCategories)

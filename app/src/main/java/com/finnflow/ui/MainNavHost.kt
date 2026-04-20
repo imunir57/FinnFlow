@@ -65,7 +65,8 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 HomeScreen(
                     onAddTransaction = { navController.navigate(Screen.AddTransaction.route) },
                     onEditTransaction = { id -> navController.navigate(Screen.EditTransaction.createRoute(id)) },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
                 )
             }
 
@@ -104,6 +105,7 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
 
             composable(Screen.Settings.route) {
                 SettingsScreen(
+                    onBack = { navController.popBackStack() },
                     onNavigateToCategories = { navController.navigate(Screen.Categories.route) },
                     onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
                 )
