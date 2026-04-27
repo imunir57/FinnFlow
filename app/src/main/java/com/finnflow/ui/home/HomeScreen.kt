@@ -1,6 +1,7 @@
 package com.finnflow.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -52,6 +53,7 @@ fun HomeScreen(
     onAddTransaction: () -> Unit,
     onEditTransaction: (Long) -> Unit,
     onNavigateToSettings: () -> Unit,
+    onNavigateToProfile: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -83,10 +85,11 @@ fun HomeScreen(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(IncomeGreen),
+                        .background(IncomeGreen)
+                        .clickable(onClick = onNavigateToProfile),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("MN", color = WarmPaper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(state.initials, color = WarmPaper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -97,7 +100,7 @@ fun HomeScreen(
                         letterSpacing = 0.3.sp
                     )
                     Text(
-                        "Munir",
+                        state.displayName.ifBlank { "there" },
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground
