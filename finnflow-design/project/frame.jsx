@@ -55,13 +55,12 @@ function GestureBar({ dark = false }) {
   );
 }
 
-// Main bottom nav — 4 tabs
+// Main bottom nav — 3 tabs (settings moved into 3-dot menu)
 function BottomNav({ current, onChange }) {
   const items = [
     { id: 'home',  label: 'Home',  icon: Ic.home },
     { id: 'stats', label: 'Stats', icon: Ic.chart },
     { id: 'yearly',label: 'Yearly',icon: Ic.calendar },
-    { id: 'settings',label: 'Settings',icon: Ic.gear },
   ];
   return (
     <div style={{

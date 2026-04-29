@@ -83,7 +83,7 @@ function TopBar({ onMenu }) {
 }
 
 // ── Variation A: Hero card ──────────────────────────────
-function HomeHero({ currency, onOpenTx, txs }) {
+function HomeHero({ currency, onOpenTx, onMenu, txs }) {
   const income  = sumBy(txs, 'INCOME');
   const expense = sumBy(txs, 'EXPENSE');
   const balance = income - expense;
@@ -91,7 +91,7 @@ function HomeHero({ currency, onOpenTx, txs }) {
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      <TopBar />
+      <TopBar onMenu={onMenu} />
       <MonthHeader label="April 2026" />
 
       {/* Hero balance card — punchier dark ink background with subtle texture */}

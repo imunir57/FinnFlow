@@ -127,7 +127,13 @@
   <script type="text/babel" src="frame.jsx"></script>
   <script type="text/babel" src="screen-home.jsx"></script>
   <script type="text/babel" src="screen-stats.jsx"></script>
+  <script type="text/babel" src="screen-stats-insights.jsx"></script>
+  <script type="text/babel" src="screen-insights.jsx"></script>
   <script type="text/babel" src="screen-add.jsx"></script>
+  <script type="text/babel" src="screen-yearly.jsx"></script>
+  <script type="text/babel" src="screen-settings.jsx"></script>
+  <script type="text/babel" src="screen-profile.jsx"></script>
+  <script type="text/babel" src="screen-categories.jsx"></script>
 
   <script type="text/babel">
     // ── Tweak defaults ─────────────────────────────────────
@@ -137,13 +143,19 @@
 
     function App() {
       const [currency, setCurrency] = React.useState(TWEAKS.currency);
-      const [homeVariant, setHomeVariant] = React.useState('hero');  // 'hero' | 'ledger' (per-device)
-      const [addVariant,  setAddVariant]  = React.useState('keypad');
 
       // nav state per device so devices work independently
       const [dev1Tab, setDev1Tab] = React.useState('home');
-      const [dev2Tab, setDev2Tab] = React.useState('home');
       const [statsCat, setStatsCat] = React.useState(null); // if set, show CategoryStats on stats device
+      const [statsInsights, setStatsInsights] = React.useState(false); // if true, show Insights on stats device
+
+      // settings flow stack on Device 1 (Home). null = closed; values: 'menu','settings','categories','subs','profile','editSheet'
+      const [settingsStack, setSettingsStack] = React.useState([]);
+      const [activeCat, setActiveCat] = React.useState(null);
+      const pushSettings = (k) => setSettingsStack(s => [...s, k]);
+      const popSettings  = () => setSettingsStack(s => s.slice(0, -1));
+      const closeSettings = () => setSettingsStack([]);
+      const top = settingsStack[settingsStack.length - 1];
 
       // edit mode wiring
       React.useEffect(() => {
@@ -173,40 +185,173 @@
         return () => window.removeEventListener('message', onMsg);
       }, [currency]);
 
+      // What renders on top of the Home device when settings flow is active
+      const settingsOverlay = () => {
+        if (!top) return null;
+        const wrap = (node) => (
+          <div style={{
+            position: 'absolute', inset: 0, background: 'var(--paper)',
+            display: 'flex', flexDirection: 'column', zIndex: 12,
+          }}>{node}</div>
+        );
+        if (top === 'settings') return wrap(
+          <SettingsScreen
+            onBack={closeSettings}
+            onOpenCategories={() => pushSettings('categories')}
+            onOpenProfile={() => pushSettings('profile')}
+            currency={currency}
+            onCurrency={() => {}}
+          />
+        );
+        if (top === 'categories') return wrap(
+          <CategoriesScreen
+            onBack={popSettings}
+            onOpenSubs={(c) => { setActiveCat(c); pushSettings('subs'); }}
+          />
+        );
+        if (top === 'subs') return wrap(
+          <SubCategoriesScreen
+            category={activeCat || EXPENSE_CATS[0]}
+            onBack={popSettings}
+          />
+        );
+        if (top === 'profile') return wrap(
+          <ProfileScreen onBack={popSettings} currency={currency} txs={TX} />
+        );
+        return null;
+      };
+
       return (
         <div className="stage-grid">
-          {/* HOME — VARIATION A: HERO */}
+          {/* HOME — VARIATION A: HERO + the settings flow */}
           <div className="screen-cell">
             <Device
               currentTab={dev1Tab}
-              onTabChange={(t) => setDev1Tab(t)}
-              fab onFab={() => setDev1Tab('add')}
+              onTabChange={(t) => { setDev1Tab(t); closeSettings(); }}
+              fab={!top && dev1Tab !== 'add'}
+              onFab={() => setDev1Tab('add')}
             >
-              {dev1Tab === 'home' && <HomeHero currency={currency} txs={TX} />}
-              {dev1Tab === 'stats' && (
-                statsCat
-                  ? <CategoryStatsScreen category={statsCat} currency={currency} onBack={() => setStatsCat(null)} />
-                  : <StatsScreen currency={currency} onOpenCategory={setStatsCat} />
+              {dev1Tab === 'home'   && <HomeHero currency={currency} txs={TX} onMenu={() => pushSettings('settings')} />}
+              {dev1Tab === 'stats'  && (
+                statsInsights
+                  ? <InsightsScreen currency={currency} onBack={() => setStatsInsights(false)} />
+                  : statsCat
+                    ? <CategoryStatsScreen category={statsCat} currency={currency} onBack={() => setStatsCat(null)} />
+                    : <StatsScreen currency={currency} onOpenCategory={setStatsCat} onOpenInsights={() => setStatsInsights(true)} />
               )}
-              {dev1Tab === 'yearly' && <Placeholder label="Yearly" />}
-              {dev1Tab === 'settings' && <Placeholder label="Settings" />}
-              {dev1Tab === 'add' && <AddTransactionScreen currency={currency} onCancel={() => setDev1Tab('home')} onSave={() => setDev1Tab('home')} />}
+              {dev1Tab === 'yearly' && <YearlyScreen currency={currency} txs={TX} onMenu={() => pushSettings('settings')} />}
+              {dev1Tab === 'add'    && <AddTransactionScreen currency={currency} onCancel={() => setDev1Tab('home')} onSave={() => setDev1Tab('home')} />}
+              {settingsOverlay()}
             </Device>
             <div>
-              <div className="screen-label" style={{ textAlign: 'center' }}>Home · variation A</div>
-              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Hero balance</div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Live prototype</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Tap the ⋮ to open Settings</div>
             </div>
             <div className="screen-caption">
-              Newsreader serif for the balance, income/expense as secondary dots. Day groups use large day numeral + weekday caption. Tap a row to edit.
+              The Settings flow now lives behind the 3-dot menu on Home (and Yearly). The four bottom-nav tabs are Home · Stats · Yearly. Try: ⋮ → Categories → tap a category → manage sub-categories.
+            </div>
+          </div>
+
+          {/* SETTINGS */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="home" onChange={() => {}} />}>
+              <SettingsScreen
+                onBack={() => {}}
+                onOpenCategories={() => {}}
+                onOpenProfile={() => {}}
+                currency={currency}
+                onCurrency={() => {}}
+              />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Settings</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Profile card · Manage · Data · App</div>
+            </div>
+            <div className="screen-caption">
+              Profile summary at top, then sectioned list. Data section covers Backup / Restore / Export · App section covers Appearance, lock, and About.
+            </div>
+          </div>
+
+          {/* PROFILE */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="home" onChange={() => {}} />}>
+              <ProfileScreen onBack={() => {}} currency={currency} txs={TX} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Profile</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Editable name · life-time stats</div>
+            </div>
+            <div className="screen-caption">
+              Tap the name to inline-edit (Enter to save, Esc to cancel). Stat triptych aggregates from local data — sync placeholder hints at the future Google sign-in.
+            </div>
+          </div>
+
+          {/* CATEGORIES */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="home" onChange={() => {}} />}>
+              <CategoriesScreen onBack={() => {}} onOpenSubs={() => {}} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Categories</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Manage · reorder · pick icon &amp; color</div>
+            </div>
+            <div className="screen-caption">
+              Expense / Income segmented tabs, drag affordance on each row, sub-count pill on the right. Tap the ＋ on the top bar (or the FAB) to open the edit sheet.
+            </div>
+          </div>
+
+          {/* SUB-CATEGORIES */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="home" onChange={() => {}} />}>
+              <SubCategoriesScreen category={EXPENSE_CATS[0]} onBack={() => {}} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Sub-categories</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Add · rename · delete</div>
+            </div>
+            <div className="screen-caption">
+              Drill-down for one category. Compact add-input at top, taps on the pencil rename inline, trash deletes. Categorized by the parent's accent color.
+            </div>
+          </div>
+
+          {/* CATEGORY EDIT SHEET (open state for showcase) */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="home" onChange={() => {}} />}>
+              <CategoriesScreen onBack={() => {}} onOpenSubs={() => {}} />
+              <CategoryEditSheet
+                cat={EXPENSE_CATS[5]}
+                defaultType="EXPENSE"
+                onClose={() => {}}
+                onSave={() => {}}
+              />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Edit category sheet</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Name · type · icon · color</div>
+            </div>
+            <div className="screen-caption">
+              Bottom sheet over the list. Live preview swatch up top reflects icon + color choices. Delete is destructive-styled and only present when editing.
+            </div>
+          </div>
+
+          {/* YEARLY */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="yearly" onChange={() => {}} />}>
+              <YearlyScreen currency={currency} txs={TX} onMenu={() => {}} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Yearly</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Hero · monthly bars · current month flagged</div>
+            </div>
+            <div className="screen-caption">
+              Year navigator + dark hero with the year glyph as watermark. Monthly rows show income / expense / net plus stacked bars normalized to the year's max.
             </div>
           </div>
 
           {/* STATS */}
           <div className="screen-cell">
-            <Device showNav={false}
-              customBottom={<BottomNav current="stats" onChange={() => {}} />}
-            >
-              <StatsScreen currency={currency} onOpenCategory={() => {}} />
+            <Device showNav={false} customBottom={<BottomNav current="stats" onChange={() => {}} />}>
+              <StatsScreen currency={currency} onOpenCategory={() => {}} onOpenInsights={() => {}} />
             </Device>
             <div>
               <div className="screen-label" style={{ textAlign: 'center' }}>Stats</div>
@@ -219,11 +364,9 @@
 
           {/* CATEGORY STATS */}
           <div className="screen-cell">
-            <Device showNav={false}
-              customBottom={<BottomNav current="stats" onChange={() => {}} />}
-            >
+            <Device showNav={false} customBottom={<BottomNav current="stats" onChange={() => {}} />}>
               <CategoryStatsScreen
-                category={EXPENSE_CATS[0]}   /* Food & Dining */
+                category={EXPENSE_CATS[0]}
                 currency={currency}
                 onBack={() => {}}
               />
@@ -237,13 +380,27 @@
             </div>
           </div>
 
-          {/* ADD TRANSACTION — variation A (keypad) */}
+          {/* INSIGHTS */}
+          <div className="screen-cell">
+            <Device showNav={false} customBottom={<BottomNav current="stats" onChange={() => {}} />}>
+              <InsightsScreen currency={currency} onBack={() => {}} />
+            </Device>
+            <div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Insights</div>
+              <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>Trends, highlights &amp; patterns</div>
+            </div>
+            <div className="screen-caption">
+              Reached from Stats via the "View insights" button. Dark hero leads with savings rate, then four analytical cards: income vs expense bars, daily spend sparkline, highlights, and day-of-week heatmap.
+            </div>
+          </div>
+
+          {/* ADD TRANSACTION */}
           <div className="screen-cell">
             <Device showNav={false} customBottom={<div />}>
               <AddTransactionScreen currency={currency} />
             </Device>
             <div>
-              <div className="screen-label" style={{ textAlign: 'center' }}>Add transaction · variation A</div>
+              <div className="screen-label" style={{ textAlign: 'center' }}>Add transaction</div>
               <div className="screen-title" style={{ textAlign: 'center', marginTop: 2 }}>All-in-one with keypad</div>
             </div>
             <div className="screen-caption">

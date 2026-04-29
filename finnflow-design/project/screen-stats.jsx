@@ -276,7 +276,7 @@ function StatsRow({ color, icon, name, count, amount, percent, currency, onClick
   );
 }
 
-function StatsScreen({ currency, onOpenCategory, onBack }) {
+function StatsScreen({ currency, onOpenCategory, onBack, onOpenInsights }) {
   const [range, setRange] = React.useState('month');
   const [type,  setType]  = React.useState('EXPENSE');
 
@@ -284,7 +284,7 @@ function StatsScreen({ currency, onOpenCategory, onBack }) {
   const total = agg.reduce((s, a) => s + a.total, 0);
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {/* Custom top bar with title */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -323,15 +323,46 @@ function StatsScreen({ currency, onOpenCategory, onBack }) {
         </div>
         <DonutLegend data={agg} total={total} currency={currency} />
 
+        {/* Insights entry — only on Expense view since the cards focus on spending */}
+        {type === 'EXPENSE' && (
+          <button onClick={onOpenInsights} style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            margin: '6px 16px 12px', padding: '12px 14px',
+            width: 'calc(100% - 32px)',
+            background: 'var(--card)',
+            border: '1px solid var(--rule)',
+            borderRadius: 14, cursor: 'pointer', textAlign: 'left',
+          }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: 'oklch(0.48 0.09 155 / 0.14)',
+              color: 'var(--pos)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}><Ic.trending size={17} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: 'Geist, system-ui', fontSize: 13.5, fontWeight: 600,
+                color: 'var(--ink)',
+              }}>View insights</div>
+              <div style={{
+                fontFamily: 'Geist, system-ui', fontSize: 11.5,
+                color: 'var(--ink-3)', marginTop: 1,
+              }}>Trends, highlights & spending patterns</div>
+            </div>
+            <Ic.chevR size={16} color="var(--ink-3)" />
+          </button>
+        )}
+
         {/* Category list */}
         <div style={{ padding: '0 0 8px', borderTop: '1px solid var(--rule)' }}>
           <div style={{
             display: 'flex', justifyContent: 'space-between',
-            padding: '0 18px 10px',
+            padding: '14px 22px 10px',
             fontFamily: 'Geist, system-ui', fontSize: 10,
             color: 'var(--ink-3)', letterSpacing: 1, textTransform: 'uppercase',
           }}>
-            <span>Category</span>
+            <span>Breakdown by category</span>
             <span>Amount</span>
           </div>
           {agg.map(a => (
@@ -369,7 +400,7 @@ function CategoryStatsScreen({ category, currency, onBack }) {
   };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       {/* Top bar: back + category name */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
