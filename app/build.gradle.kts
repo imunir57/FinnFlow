@@ -20,6 +20,16 @@ android {
         testInstrumentationRunner = "com.finnflow.HiltTestRunner"
     }
 
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/LICENSE.md",
+                "META-INF/LICENSE-notice.md",
+                "META-INF/NOTICE.md"
+            )
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -66,10 +76,13 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.coroutines.android)
+    implementation(libs.datastore.preferences)
 
     // Hilt
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.core.ktx)
+    implementation(libs.androidx.junit.ktx)
     ksp(libs.hilt.compiler)
 
     // Room

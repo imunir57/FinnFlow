@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
+import com.finnflow.data.profile.UserProfileRepository
 import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +23,9 @@ data class HomeUiState(
     val totalExpense: Double = 0.0,
     val dailyGroups: Map<LocalDate, List<Transaction>> = emptyMap(),
     val categories: Map<Long, Category> = emptyMap(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val displayName: String = "",
+    val initials: String = "?"
 ) {
     val balance get() = totalIncome - totalExpense
 }
@@ -30,28 +33,34 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TransactionRepository,
-    private val categoryRepo: CategoryRepository
+    private val categoryRepo: CategoryRepository,
+    private val profileRepo: UserProfileRepository
 ) : ViewModel() {
 
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
+
+    private data class TxData(val month: YearMonth, val txs: List<Transaction>, val groups: Map<LocalDate, List<Transaction>>)
 
     val uiState: StateFlow<HomeUiState> = combine(
         _selectedMonth.flatMapLatest { month ->
             val yearMonth = month.format(DateTimeFormatter.ofPattern("yyyy-MM"))
             repository.getTransactionsByMonth(yearMonth).map { txs ->
-                Triple(month, txs, txs.groupBy { it.date })
+                TxData(month, txs, txs.groupBy { it.date })
             }
         },
-        categoryRepo.getAllCategories()
-    ) { (month, txs, groups), cats ->
+        categoryRepo.getAllCategories(),
+        profileRepo.profile
+    ) { txData, cats, profile ->
         HomeUiState(
-            selectedMonth = month,
-            transactions  = txs,
-            totalIncome   = txs.filter { it.type == TransactionType.INCOME  }.sumOf { it.amount },
-            totalExpense  = txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
-            dailyGroups   = groups,
+            selectedMonth = txData.month,
+            transactions  = txData.txs,
+            totalIncome   = txData.txs.filter { it.type == TransactionType.INCOME  }.sumOf { it.amount },
+            totalExpense  = txData.txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
+            dailyGroups   = txData.groups,
             categories    = cats.associateBy { it.id },
-            isLoading     = false
+            isLoading     = false,
+            displayName   = profile.displayName,
+            initials      = profile.initials.ifBlank { "?" }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

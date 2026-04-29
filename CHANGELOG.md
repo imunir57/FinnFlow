@@ -10,9 +10,78 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+**Profile & onboarding**
+- First-launch onboarding screen — name input with "Get Started" and "Skip" options; skipping still marks onboarding as complete
+- Local user profile persisted via DataStore Preferences (`displayName`, `initials`, `hasCompletedOnboarding`)
+- `UserProfileRepository` interface + `UserProfileRepositoryImpl` backed by DataStore
+- `ProfileModule` — Hilt `@Provides` for singleton `DataStore<Preferences>` and `@Binds` for the repo
+- `ProfileScreen` — avatar initials, editable display name, Google sign-in stub (future sync/backup)
+- `MainViewModel` — exposes `hasCompletedOnboarding: StateFlow<Boolean?>` (`null` = loading) to gate the start destination
+- `MainNavHost` updated: blank frame while DataStore is loading, then routes to Onboarding or Home based on flag; bottom bar hidden on non-tab screens
+
+**Settings screen**
+- `SettingsScreen` — list-based settings page replacing the direct category navigation; items: Categories, Profile, Currency, Backup, About
+- Back button on Settings screen
+- Tapping the avatar/initials on Home navigates directly to Profile
+
+**App icon**
+- Custom adaptive icon across all mipmap densities (mdpi → xxxhdpi) using `app_icon.png`
+- Solid white `ic_launcher_background` replacing the default Android vector
+
+**Transaction form**
+- Date picker dialog (Material3 `DatePickerDialog`) wired to the date field on `TransactionFormScreen`
+
+**Stats screen**
+- Custom date range navigation: tapping the date chips in stats opens a date picker for `CUSTOM` period selection
+
+**Tests**
+- `UserProfileRepositoryTest` — 9 unit tests: Flow mapping (defaults, name, two-word/single-word initials, onboarding flag), `saveProfile` trimming, `updateData` delegation, `completeOnboarding` flag write, `clearProfile`
+- `OnboardingViewModelTest` — 7 unit tests: get-started with/without name, skip, blank/empty name guards, `navigateHome` channel emissions, consecutive calls
+- `ProfileViewModelTest` — 5 unit tests: default initial state, repo data reflection, multi-emission, `saveName` delegation
+- `MainViewModelTest` — 4 unit tests: resolved non-null value, false/true onboarding flag, latest-value reflection
+
+### Changed
+
+**Warm UI theme (YearlyScreen)**
+- `YearlyScreen` summary card redesigned to match `HomeScreen` hero card — dark gradient, Taka watermark, income/expense/net in a single row per month
+- Month names use full form only (no abbreviations)
+
+**HomeScreen**
+- Settings icon replaces the 3-dot menu button; taps navigate to `SettingsScreen`
+- Avatar initials and greeting name now driven by `UserProfile` from DataStore (no longer hardcoded)
+- `HomeViewModel` injects `UserProfileRepository`; `HomeUiState` exposes `displayName` and `initials`
+
+**HomeViewModel**
+- `getAllCategories()` combined into the main `uiState` flow so category names render without a separate fetch
+
+**Bottom navigation**
+- Settings removed from `BottomNavBar`; now 3 tabs only: Home, Stats, Yearly
+
+### Fixed
+
+- Amount validation no longer shows an error on initial form load before the user has typed anything
+
+---
+
+> Features planned but not yet released.
+
+- Backup & restore (local file export / import)
+- Account integration (bank accounts, wallets)
+- Transfer between accounts
+- Recurring transaction support
+- Budget / spending limits per category
+- Widget for home screen balance
+- Google Sign-In for cross-device sync and backup
+
+---
+
+## [1.0.0-alpha.2] — 2025-04-20
+
+### Added
+
 **Stats screen redesign**
 - `StatsPeriod` — removed `DAILY`; now `MONTHLY`, `ANNUALLY`, `CUSTOM` only
-- Unified control bar: period chips (Month / Year / Custom) and Income/Expense toggle separated by a vertical divider on the same row
+- Unified control bar: period chips (Month / Year / Custom) and Income/Expense toggle on the same row separated by a vertical divider
 - Donut chart with `%` labels rendered inside each slice via `android.graphics.Paint` on `Canvas`; labels suppressed on slices narrower than 25° to avoid cramping
 - Category list rows show colour bar, name, transaction count, percentage, and amount; tap navigates to `CategoryDetailScreen`
 - `StatsViewModel` rewritten: `QueryParams` internal state drives `flatMapLatest` so any param change triggers a single reactive re-fetch; exposes `currentFrom`, `currentTo`, `currentType` for nav arg passthrough
@@ -29,31 +98,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - `TransactionDao.getTransactionsBySubCategory()` — handles `NULL` subcategory via `(:subCategoryId IS NULL AND subCategoryId IS NULL) OR subCategoryId = :subCategoryId`
 - `TransactionRepository` interface and impl extended with both new methods
 
-**Tests**
-- `StatsViewModelTest` — updated: removed `DAILY` test, added `noDailyOption_inStatsPeriod`, `percentOf` accuracy, zero-total guard, exposed property checks (8 tests total)
-- `CategoryDetailViewModelTest` — 8 tests: initial load, expand/collapse, row switching, cache hit verification, `percentOf`, category name loading
-- `TransactionDaoStatsTest` — 11 instrumented tests for the two new DAO queries: grouping, `NULL` subcat, ordering, date range, cross-category isolation, type filtering
-- `TransactionRepositoryStatsTest` — 6 unit tests: delegation, domain mapping, null passthrough, multi-entity mapping
-
 **Seed data on first launch**
 - `SeedData` — defines 18 default categories (12 expense, 5 income, 1 transfer) with 70+ subcategories
 - `DatabaseSeeder` — `RoomDatabase.Callback` that inserts seed data inside `onCreate` via a background coroutine; uses `Provider<AppDatabase>` to avoid circular Hilt dependency
 - `AppModule` updated — `DatabaseSeeder` registered via `.addCallback()` on the Room builder
 
 **Tests**
+- `StatsViewModelTest` — updated: removed `DAILY` test, added `noDailyOption_inStatsPeriod`, `percentOf` accuracy, zero-total guard, exposed property checks (8 tests total)
+- `CategoryDetailViewModelTest` — 8 tests: initial load, expand/collapse, row switching, cache hit verification, `percentOf`, category name loading
+- `TransactionDaoStatsTest` — 11 instrumented tests for the two new DAO queries: grouping, `NULL` subcat, ordering, date range, cross-category isolation, type filtering
+- `TransactionRepositoryStatsTest` — 6 unit tests: delegation, domain mapping, null passthrough, multi-entity mapping
 - `SeedDataTest` (unit) — 11 tests covering uniqueness, blank names, hex color format, type counts, subcategory completeness
 - `DatabaseSeederTest` (instrumented) — 7 tests verifying seed writes correctly to in-memory Room: category count, type breakdown, subcategory counts, color/type preservation
-
----
-
-> Features planned but not yet released.
-
-- Backup & restore (local file export / import)
-- Account integration (bank accounts, wallets)
-- Transfer between accounts
-- Recurring transaction support
-- Budget / spending limits per category
-- Widget for home screen balance
 
 ---
 
@@ -132,4 +188,5 @@ On release, rename `[Unreleased]` to the version + date and open a new empty `[U
 ---
 
 [Unreleased]: https://github.com/your-org/FinnFlow/compare/v1.0.0...HEAD
+[1.0.0-alpha.2]: https://github.com/your-org/FinnFlow/compare/v1.0.0...v1.0.0-alpha.2
 [1.0.0]: https://github.com/your-org/FinnFlow/releases/tag/v1.0.0
