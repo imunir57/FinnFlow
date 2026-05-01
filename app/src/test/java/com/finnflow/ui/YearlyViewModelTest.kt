@@ -84,4 +84,39 @@ class YearlyViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    // ── avgMonthly computed properties ────────────────────────────────────
+
+    @Test
+    fun avgMonthlyIncome_dividesTotalByMonthsWithData() = runTest {
+        val vm = YearlyViewModel(repo)
+        vm.state.test {
+            val state = awaitItem()
+            assertEquals(1500.0, state.avgMonthlyIncome, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun avgMonthlyExpense_dividesTotalByMonthsWithData() = runTest {
+        val vm = YearlyViewModel(repo)
+        vm.state.test {
+            val state = awaitItem()
+            assertEquals(625.0, state.avgMonthlyExpense, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun avgMonthlyIncome_withNoData_doesNotDivideByZero() = runTest {
+        every { repo.getMonthlyTotalsByYear(any(), TransactionType.INCOME) } returns flowOf(emptyList())
+        every { repo.getMonthlyTotalsByYear(any(), TransactionType.EXPENSE) } returns flowOf(emptyList())
+        val vm = YearlyViewModel(repo)
+        vm.state.test {
+            val state = awaitItem()
+            assertEquals(0.0, state.avgMonthlyIncome, 0.001)
+            assertEquals(0.0, state.avgMonthlyExpense, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
