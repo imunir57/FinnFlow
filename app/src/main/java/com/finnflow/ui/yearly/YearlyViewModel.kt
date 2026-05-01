@@ -19,6 +19,8 @@ data class YearlyUiState(
     val totalIncome get() = incomeByMonth.sumOf { it.total }
     val totalExpense get() = expenseByMonth.sumOf { it.total }
     val netBalance get() = totalIncome - totalExpense
+    val avgMonthlyIncome get() = totalIncome / incomeByMonth.count { it.total > 0 }.coerceAtLeast(1)
+    val avgMonthlyExpense get() = totalExpense / expenseByMonth.count { it.total > 0 }.coerceAtLeast(1)
 }
 
 @HiltViewModel

@@ -28,10 +28,13 @@ import com.finnflow.ui.theme.Ink
 import com.finnflow.ui.theme.InkFaint
 import com.finnflow.ui.theme.InkMedium
 import com.finnflow.ui.theme.Rule
+import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
+import java.time.LocalDate
 import java.time.Month
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.math.roundToLong
 
 private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
@@ -42,6 +45,10 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     val maxMonthVal = remember(state.incomeByMonth, state.expenseByMonth) {
         (state.incomeByMonth + state.expenseByMonth).maxOfOrNull { it.total }?.takeIf { it > 0 } ?: 1.0
+    }
+    val currentMonthIndex = remember(state.year) {
+        val today = LocalDate.now()
+        if (state.year == today.year) today.monthValue - 1 else -1
     }
 
     Column(
@@ -159,6 +166,9 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
             return@Column
         }
 
+        // ── Monthly averages strip ─────────────────────────────────────────
+        AvgStrip(avgIn = state.avgMonthlyIncome, avgOut = state.avgMonthlyExpense)
+
         // ── Month list ────────────────────────────────────────────────────
         // Column header
         Row(
@@ -167,8 +177,8 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 .padding(horizontal = 18.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Month",   fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
-            Text("Income / Expense  Net", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
+            Text("Month", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
+            Text("In · Out · Net", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
         }
         HorizontalDivider(color = Rule)
 
@@ -182,7 +192,8 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                     monthName = monthFull,
                     income    = income,
                     expense   = expense,
-                    maxVal    = maxMonthVal
+                    maxVal    = maxMonthVal,
+                    isCurrent = index == currentMonthIndex
                 )
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -214,11 +225,52 @@ private fun HeroStat(label: String, value: Double, color: Color, modifier: Modif
 }
 
 @Composable
+private fun AvgStrip(avgIn: Double, avgOut: Double) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 12.dp)
+            .background(WarmCard, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        AvgCell(label = "Avg / month in", value = avgIn, color = IncomeGreen)
+        AvgCell(label = "Avg / month out", value = avgOut, color = ExpenseClay)
+    }
+}
+
+@Composable
+private fun AvgCell(label: String, value: Double, color: Color) {
+    Column {
+        Text(label, fontSize = 10.sp, letterSpacing = 0.8.sp, color = InkFaint)
+        Spacer(Modifier.height(2.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "৳",
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Serif,
+                color = color.copy(alpha = 0.55f),
+                modifier = Modifier.padding(end = 1.dp, bottom = 2.dp)
+            )
+            Text(
+                fmtAmount(value.roundToLong().toDouble()),
+                fontSize = 22.sp,
+                fontFamily = FontFamily.Serif,
+                color = color,
+                letterSpacing = (-0.2).sp
+            )
+        }
+    }
+}
+
+@Composable
 private fun MonthRow(
     monthName: String,
     income: Double,
     expense: Double,
-    maxVal: Double
+    maxVal: Double,
+    isCurrent: Boolean = false
 ) {
     val balance = income - expense
     val hasData = income > 0 || expense > 0
@@ -226,16 +278,37 @@ private fun MonthRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(if (isCurrent) WarmCard else Color.Transparent)
             .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                monthName,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (hasData) Ink else InkFaint,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    monthName,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (hasData) Ink else InkFaint
+                )
+                if (isCurrent) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Ink, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            "NOW",
+                            fontSize = 9.sp,
+                            letterSpacing = 0.6.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = WarmPaper
+                        )
+                    }
+                }
+            }
             if (hasData) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
