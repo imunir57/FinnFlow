@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -40,6 +41,8 @@ import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
 
+private const val PLACEHOLDER_EMAIL = "user@example.com"
+
 private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
     else "%,.2f".format(amount)
@@ -57,6 +60,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val profile = uiState.profile
+    val focusManager = LocalFocusManager.current
 
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
@@ -67,6 +71,7 @@ fun ProfileScreen(
     }
 
     fun commitEdit() {
+        focusManager.clearFocus()
         viewModel.saveName(draft)
         editing = false
     }
@@ -210,7 +215,7 @@ fun ProfileScreen(
                     }
 
                     Spacer(Modifier.height(4.dp))
-                    Text("imunir57@gmail.com", fontSize = 12.5.sp, color = InkMedium)
+                    Text(PLACEHOLDER_EMAIL, fontSize = 12.5.sp, color = InkMedium)
                 }
             }
 
@@ -259,7 +264,7 @@ fun ProfileScreen(
                     icon = Icons.Default.Email,
                     iconColor = IconEmail,
                     label = "Email",
-                    subtitle = "imunir57@gmail.com"
+                    subtitle = PLACEHOLDER_EMAIL
                 )
             }
             item {
