@@ -20,6 +20,7 @@ import com.finnflow.ui.home.HomeScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
 import com.finnflow.ui.settings.SettingsScreen
+import com.finnflow.ui.insights.InsightsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
 import com.finnflow.ui.stats.StatsScreen
 import com.finnflow.ui.transaction.TransactionFormScreen
@@ -81,8 +82,13 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                                 type = type.name
                             )
                         )
-                    }
+                    },
+                    onNavigateToInsights = { navController.navigate(Screen.Insights.route) }
                 )
+            }
+
+            composable(Screen.Insights.route) {
+                InsightsScreen(onBack = { navController.popBackStack() })
             }
 
             composable(
