@@ -15,6 +15,7 @@ sealed class Screen(val route: String) {
     }
     object Onboarding : Screen("onboarding")
     object Profile : Screen("profile")
+    object Insights : Screen("insights")
     object CategoryDetail : Screen("stats/category/{categoryId}/{from}/{to}/{type}") {
         fun createRoute(
             categoryId: Long,

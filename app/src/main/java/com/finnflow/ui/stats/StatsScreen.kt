@@ -11,7 +11,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.theme.IncomeGreen
 import com.finnflow.ui.theme.Ink
 import com.finnflow.ui.theme.InkFaint
 import com.finnflow.ui.theme.InkMedium
@@ -55,6 +58,7 @@ private val sliceColors = listOf(
 @Composable
 fun StatsScreen(
     onNavigateToCategory: (categoryId: Long, from: LocalDate, to: LocalDate, type: TransactionType) -> Unit,
+    onNavigateToInsights: () -> Unit = {},
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -190,6 +194,9 @@ fun StatsScreen(
             }
             item {
                 LegendRow(summaries = state.activeSummary, percentOf = state::percentOf)
+            }
+            if (state.selectedType == TransactionType.EXPENSE) {
+                item { InsightsEntryCard(onClick = onNavigateToInsights) }
             }
             item {
                 HorizontalDivider(color = Rule, modifier = Modifier.padding(top = 4.dp))
@@ -508,6 +515,39 @@ private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> I
                 if (pair.size == 1) Spacer(Modifier.weight(1f))
             }
         }
+    }
+}
+
+// ── Insights entry card ───────────────────────────────────────────────────────
+
+@Composable
+private fun InsightsEntryCard(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(WarmCard)
+            .border(1.dp, Rule, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(IncomeGreen.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = IncomeGreen, modifier = Modifier.size(17.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text("View insights", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+            Text("Trends, highlights & spending patterns", fontSize = 11.5.sp, color = InkFaint)
+        }
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = InkFaint, modifier = Modifier.size(16.dp))
     }
 }
 
