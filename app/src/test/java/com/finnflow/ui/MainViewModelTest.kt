@@ -37,11 +37,9 @@ class MainViewModelTest {
     @Test
     fun hasCompletedOnboarding_startsAsNull() {
         every { repo.profile } returns flowOf(UserProfile(hasCompletedOnboarding = false))
-        // Initial stateIn value before any upstream emission
         val vm = makeVm()
-        // With UnconfinedTestDispatcher the StateFlow collects immediately,
-        // so the initial null is replaced — verify the resolved state is non-null
-        assertNotNull(vm.hasCompletedOnboarding.value)
+        // Without a subscriber, WhileSubscribed never activates — initial value stays null
+        assertNull(vm.hasCompletedOnboarding.value)
     }
 
     @Test
@@ -77,12 +75,11 @@ class MainViewModelTest {
         )
 
         makeVm().hasCompletedOnboarding.test {
-            val emissions = mutableListOf<Boolean?>()
-            emissions.add(awaitItem())
-            emissions.add(awaitItem())
+            // Collect items until we see true (StateFlow may emit null, false, true)
+            var last: Boolean? = null
+            while (last != true) { last = awaitItem() }
+            assertEquals(true, last)
             cancelAndIgnoreRemainingEvents()
-            // Last emitted value must be true
-            assertTrue(emissions.last() == true)
         }
     }
 }

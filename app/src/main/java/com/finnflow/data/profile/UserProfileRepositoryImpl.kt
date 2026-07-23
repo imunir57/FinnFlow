@@ -18,7 +18,7 @@ class UserProfileRepositoryImpl @Inject constructor(
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
     }
 
-    override val profile: Flow<UserProfile> = dataStore.data.map { prefs ->
+    override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
         val name = prefs[Keys.DISPLAY_NAME] ?: ""
         UserProfile(
             displayName = name,

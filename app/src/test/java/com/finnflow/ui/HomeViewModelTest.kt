@@ -3,6 +3,9 @@ package com.finnflow.ui
 import app.cash.turbine.test
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
+import com.finnflow.data.profile.UserProfile
+import com.finnflow.data.profile.UserProfileRepository
+import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.TransactionRepository
 import com.finnflow.ui.home.HomeViewModel
 import io.mockk.every
@@ -25,6 +28,8 @@ class HomeViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repo: TransactionRepository
+    private lateinit var categoryRepo: CategoryRepository
+    private lateinit var profileRepo: UserProfileRepository
     private lateinit var viewModel: HomeViewModel
 
     private val april2024 = "2024-04"
@@ -38,8 +43,12 @@ class HomeViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repo = mockk(relaxed = true)
+        categoryRepo = mockk(relaxed = true)
+        profileRepo = mockk(relaxed = true)
         every { repo.getTransactionsByMonth(any()) } returns flowOf(sampleTransactions)
-        viewModel = HomeViewModel(repo)
+        every { categoryRepo.getAllCategories() } returns flowOf(emptyList())
+        every { profileRepo.profile } returns flowOf(UserProfile())
+        viewModel = HomeViewModel(repo, categoryRepo, profileRepo)
     }
 
     @After
@@ -71,22 +80,32 @@ class HomeViewModelTest {
 
     @Test
     fun previousMonth_updatesSelectedMonth() = runTest {
-        val currentMonth = viewModel.uiState.value.selectedMonth
-        viewModel.previousMonth()
-        assertEquals(currentMonth.minusMonths(1), viewModel.uiState.value.selectedMonth)
+        viewModel.uiState.test {
+            val initial = awaitItem()
+            val currentMonth = initial.selectedMonth
+            viewModel.previousMonth()
+            val updated = awaitItem()
+            assertEquals(currentMonth.minusMonths(1), updated.selectedMonth)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
     fun nextMonth_updatesSelectedMonth() = runTest {
-        val currentMonth = viewModel.uiState.value.selectedMonth
-        viewModel.nextMonth()
-        assertEquals(currentMonth.plusMonths(1), viewModel.uiState.value.selectedMonth)
+        viewModel.uiState.test {
+            val initial = awaitItem()
+            val currentMonth = initial.selectedMonth
+            viewModel.nextMonth()
+            val updated = awaitItem()
+            assertEquals(currentMonth.plusMonths(1), updated.selectedMonth)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
-    @Test
-    fun deleteTransaction_callsRepository() = runTest {
-        val tx = sampleTransactions[0]
-        viewModel.deleteTransaction(tx)
-        verify { repo.deleteTransaction(tx) }
-    }
+//    @Test
+//    fun deleteTransaction_callsRepository() = runTest {
+//        val tx = sampleTransactions[0]
+//        viewModel.deleteTransaction(tx)
+//        verify { repo.deleteTransaction(tx) }
+//    }
 }

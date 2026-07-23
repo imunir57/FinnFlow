@@ -82,6 +82,9 @@ class CategoryDetailViewModel @Inject constructor(
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CategoryDetailUiState())
 
+    private val _categoryName = MutableStateFlow("")
+    val categoryName: StateFlow<String> = _categoryName.asStateFlow()
+
     init {
         // Load category name separately
         viewModelScope.launch {
@@ -91,9 +94,6 @@ class CategoryDetailViewModel @Inject constructor(
             }
         }
     }
-
-    private val _categoryName = MutableStateFlow("")
-    val categoryName: StateFlow<String> = _categoryName.asStateFlow()
 
     fun toggleSubCategory(subCategoryId: Long?) {
         val current = _expandedSubCategoryId.value

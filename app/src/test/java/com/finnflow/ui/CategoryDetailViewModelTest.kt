@@ -157,7 +157,8 @@ class CategoryDetailViewModelTest {
     fun categoryName_loadedFromRepository() = runTest {
         val vm = makeVm()
         vm.categoryName.test {
-            skipItems(1) // empty initial
+            // init coroutine runs before makeVm() returns (UnconfinedTestDispatcher),
+            // so the name is already "Food & Dining" — only one emission
             val name = awaitItem()
             assertEquals("Food & Dining", name)
             cancelAndIgnoreRemainingEvents()

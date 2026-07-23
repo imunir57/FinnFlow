@@ -100,4 +100,15 @@ class CategoryRepositoryTest {
         repo.deleteSubCategory(domainSub)
         coVerify { dao.deleteSubCategory(SubCategoryEntity.fromDomain(domainSub)) }
     }
+
+    @Test
+    fun getAllSubCategories_emitsMappedList() = runTest {
+        every { dao.getAllSubCategories() } returns flowOf(listOf(entitySub))
+        repo.getAllSubCategories().test {
+            val list = awaitItem()
+            assertEquals(1, list.size)
+            assertEquals(domainSub, list[0])
+            awaitComplete()
+        }
+    }
 }
