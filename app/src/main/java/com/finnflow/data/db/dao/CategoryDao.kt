@@ -45,4 +45,7 @@ interface CategoryDao {
 
     @Query("SELECT * FROM sub_categories WHERE id = :id")
     suspend fun getSubCategoryById(id: Long): SubCategoryEntity?
+
+    @Query("SELECT * FROM sub_categories")
+    fun getAllSubCategories(): Flow<List<SubCategoryEntity>>
 }

@@ -12,11 +12,29 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class CategoryDisplayItem(
+    val category: Category,
+    val subCount: Int,
+    val subPreviewNames: List<String>
+)
+
 data class CategoryUiState(
-    val categories: List<Category> = emptyList(),
+    val selectedType: TransactionType = TransactionType.EXPENSE,
+    val expenseCount: Int = 0,
+    val incomeCount: Int = 0,
+    val displayItems: List<CategoryDisplayItem> = emptyList(),
     val subCategories: List<SubCategory> = emptyList(),
     val selectedCategoryId: Long? = null,
+    val isEditSheetOpen: Boolean = false,
+    val editingCategory: Category? = null,
+    val isNewCategory: Boolean = false,
     val isLoading: Boolean = true
+)
+
+private data class CatRaw(
+    val categories: List<Category>,
+    val subCategories: List<SubCategory>,
+    val selectedType: TransactionType
 )
 
 @HiltViewModel
@@ -25,32 +43,72 @@ class CategoryViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // When navigated to sub-category management, categoryId is passed
     val parentCategoryId: Long? = savedStateHandle.get<Long>("categoryId")
 
+    private val _selectedType = MutableStateFlow(TransactionType.EXPENSE)
     private val _state = MutableStateFlow(CategoryUiState())
     val state: StateFlow<CategoryUiState> = _state.asStateFlow()
 
     init {
-        if (parentCategoryId != null) loadSubCategories(parentCategoryId)
-        else loadCategories()
+        if (parentCategoryId != null) {
+            repository.getSubCategories(parentCategoryId)
+                .onEach { subs ->
+                    _state.update { it.copy(subCategories = subs, selectedCategoryId = parentCategoryId, isLoading = false) }
+                }
+                .launchIn(viewModelScope)
+        } else {
+            combine(
+                repository.getAllCategories(),
+                repository.getAllSubCategories(),
+                _selectedType
+            ) { cats, subs, type -> CatRaw(cats, subs, type) }
+                .onEach { raw ->
+                    val subMap = raw.subCategories.groupBy { it.categoryId }
+                    val filtered = raw.categories.filter { it.type == raw.selectedType }
+                    _state.update { s ->
+                        s.copy(
+                            selectedType = raw.selectedType,
+                            expenseCount = raw.categories.count { it.type == TransactionType.EXPENSE },
+                            incomeCount = raw.categories.count { it.type == TransactionType.INCOME },
+                            displayItems = filtered.map { cat ->
+                                val catSubs = subMap[cat.id] ?: emptyList()
+                                CategoryDisplayItem(
+                                    category = cat,
+                                    subCount = catSubs.size,
+                                    subPreviewNames = catSubs.take(3).map { it.name }
+                                )
+                            },
+                            isLoading = false
+                        )
+                    }
+                }
+                .launchIn(viewModelScope)
+        }
     }
 
-    private fun loadCategories() {
-        repository.getAllCategories()
-            .onEach { cats -> _state.update { it.copy(categories = cats, isLoading = false) } }
-            .launchIn(viewModelScope)
+    fun setSelectedType(type: TransactionType) {
+        _selectedType.value = type
     }
 
-    private fun loadSubCategories(categoryId: Long) {
-        repository.getSubCategories(categoryId)
-            .onEach { subs -> _state.update { it.copy(subCategories = subs, selectedCategoryId = categoryId, isLoading = false) } }
-            .launchIn(viewModelScope)
+    fun openEditSheet(category: Category? = null) {
+        _state.update { it.copy(isEditSheetOpen = true, editingCategory = category, isNewCategory = category == null) }
     }
 
-    fun addCategory(name: String, type: TransactionType, colorHex: String = "#607D8B") {
+    fun closeEditSheet() {
+        _state.update { it.copy(isEditSheetOpen = false, editingCategory = null, isNewCategory = false) }
+    }
+
+    fun moveItem(fromIndex: Int, toIndex: Int) {
+        val current = _state.value.displayItems.toMutableList()
+        if (fromIndex !in current.indices || toIndex !in current.indices) return
+        val item = current.removeAt(fromIndex)
+        current.add(toIndex, item)
+        _state.update { it.copy(displayItems = current) }
+    }
+
+    fun addCategory(name: String, type: TransactionType, iconName: String = "dots", colorHex: String = "#607D8B") {
         viewModelScope.launch {
-            repository.addCategory(Category(name = name, type = type, colorHex = colorHex))
+            repository.addCategory(Category(name = name, type = type, iconName = iconName, colorHex = colorHex))
         }
     }
 

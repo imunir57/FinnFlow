@@ -23,6 +23,7 @@ interface CategoryRepository {
     suspend fun updateSubCategory(subCategory: SubCategory)
     suspend fun deleteSubCategory(subCategory: SubCategory)
     fun getSubCategories(categoryId: Long): Flow<List<SubCategory>>
+    fun getAllSubCategories(): Flow<List<SubCategory>>
 }
 
 @Singleton
@@ -59,4 +60,7 @@ class CategoryRepositoryImpl @Inject constructor(
 
     override fun getSubCategories(categoryId: Long) =
         dao.getSubCategories(categoryId).map { list -> list.map { it.toDomain() } }
+
+    override fun getAllSubCategories() =
+        dao.getAllSubCategories().map { list -> list.map { it.toDomain() } }
 }
