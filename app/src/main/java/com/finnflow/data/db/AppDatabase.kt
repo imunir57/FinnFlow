@@ -15,7 +15,7 @@ import com.finnflow.data.db.entity.TransactionEntity
         CategoryEntity::class,
         SubCategoryEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
