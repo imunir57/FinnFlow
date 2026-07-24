@@ -1,7 +1,9 @@
 package com.finnflow.data.model
 
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 
+@Serializable
 enum class TransactionType { INCOME, EXPENSE, TRANSFER }
 
 data class Transaction(

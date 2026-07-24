@@ -33,6 +33,7 @@ import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.Currency
 import com.finnflow.data.profile.UserProfile
+import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.components.OptionPickerSheet
 import com.finnflow.ui.components.PickerOption
 import com.finnflow.ui.theme.ExpenseClay
@@ -43,7 +44,11 @@ import com.finnflow.ui.theme.InkMedium
 import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
+import kotlinx.coroutines.flow.collectLatest
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val IconCategories   = Color(0xFF7A5C3E)
 private val IconCurrency     = Color(0xFF3E4A8A)
@@ -67,6 +72,8 @@ fun SettingsScreen(
     val appLockMessage by viewModel.appLockMessage.collectAsState()
     val context = LocalContext.current
     val activity = context as? FragmentActivity
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showRestoreConfirmation by remember { mutableStateOf(false) }
 
     var pendingExportUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -96,9 +103,49 @@ fun SettingsScreen(
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var showAppearancePicker by remember { mutableStateOf(false) }
 
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.performBackup(context.contentResolver.openOutputStream(uri))
+        }
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.performRestore(context.contentResolver.openInputStream(uri))
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.messages.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    if (showRestoreConfirmation) {
+        ConfirmationDialog(
+            title = "Restore from backup",
+            message = "This replaces all current data — continue?",
+            confirmLabel = "Restore",
+            onConfirm = {
+                showRestoreConfirmation = false
+                restoreLauncher.launch(arrayOf("application/json"))
+            },
+            onDismiss = { showRestoreConfirmation = false }
+        )
+    }
+
+    Scaffold(
+        containerColor = WarmPaper,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(paddingValues)
             .background(WarmPaper)
     ) {
         Row(
@@ -171,7 +218,8 @@ fun SettingsScreen(
                     icon = Icons.Default.CloudUpload,
                     iconColor = IconBackup,
                     label = "Backup",
-                    subtitle = "Last backup — Apr 17, 2026"
+                    subtitle = formatBackupTimestamp(profile.lastBackupTimestamp),
+                    onClick = { backupLauncher.launch("finnflow_backup.json") }
                 )
             }
             item {
@@ -179,7 +227,8 @@ fun SettingsScreen(
                     icon = Icons.Default.CloudDownload,
                     iconColor = IconRestore,
                     label = "Restore",
-                    subtitle = "From a previous backup file"
+                    subtitle = "From a previous backup file",
+                    onClick = { showRestoreConfirmation = true }
                 )
             }
             item {
@@ -262,6 +311,7 @@ fun SettingsScreen(
             item { Spacer(Modifier.height(80.dp)) }
         }
     }
+    }
 
     if (showCurrencyPicker) {
         OptionPickerSheet(
@@ -296,6 +346,14 @@ private fun themeModeLabel(mode: String): String = when (mode) {
     "light" -> "Light"
     "dark" -> "Dark"
     else -> "System"
+}
+
+private val backupDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+
+private fun formatBackupTimestamp(timestamp: Long?): String {
+    if (timestamp == null) return "Never backed up"
+    val date = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate()
+    return "Last backup — ${date.format(backupDateFormatter)}"
 }
 
 @Composable

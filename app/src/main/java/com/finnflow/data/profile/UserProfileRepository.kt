@@ -11,4 +11,5 @@ interface UserProfileRepository {
     suspend fun setThemeMode(mode: String)
     suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setAppLockEnabled(enabled: Boolean)
+    suspend fun setLastBackupTimestamp(timestamp: Long)
 }
