@@ -18,6 +18,8 @@ class UserProfileRepositoryImpl @Inject constructor(
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
         val CURRENCY_CODE = stringPreferencesKey("profile_currency_code")
         val THEME_MODE = stringPreferencesKey("profile_theme_mode")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -27,7 +29,9 @@ class UserProfileRepositoryImpl @Inject constructor(
             initials = name.toInitials(),
             hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false,
             currencyCode = prefs[Keys.CURRENCY_CODE] ?: "BDT",
-            themeMode = prefs[Keys.THEME_MODE] ?: "system"
+            themeMode = prefs[Keys.THEME_MODE] ?: "system",
+            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
+            appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false
         )
     }
 
@@ -56,6 +60,18 @@ class UserProfileRepositoryImpl @Inject constructor(
     override suspend fun setThemeMode(mode: String) {
         dataStore.edit { prefs ->
             prefs[Keys.THEME_MODE] = mode
+        }
+    }
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[Keys.NOTIFICATIONS_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setAppLockEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[Keys.APP_LOCK_ENABLED] = enabled
         }
     }
 }

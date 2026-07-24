@@ -18,6 +18,7 @@ import com.finnflow.ui.category.CategoryScreen
 import com.finnflow.ui.category.SubCategoryScreen
 import com.finnflow.ui.components.BottomNavBar
 import com.finnflow.ui.home.HomeScreen
+import com.finnflow.ui.lock.AppLockScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
 import com.finnflow.ui.settings.AboutScreen
@@ -44,11 +45,18 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
         "dark" -> true
         else -> isSystemInDarkTheme()
     }
+    val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
+    val isUnlocked by mainViewModel.isUnlocked.collectAsState()
 
     // Wait until DataStore is read before rendering anything
     if (onboardingDone == null) return
 
     FinnFlowTheme(darkTheme = isDarkTheme) {
+    if (appLockEnabled && !isUnlocked) {
+        AppLockScreen(onUnlocked = mainViewModel::onUnlocked)
+        return@FinnFlowTheme
+    }
+
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route

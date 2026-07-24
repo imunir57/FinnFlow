@@ -7,7 +7,9 @@ data class UserProfile(
     val initials: String = "",
     val hasCompletedOnboarding: Boolean = false,
     val currencyCode: String = "BDT",
-    val themeMode: String = "system"
+    val themeMode: String = "system",
+    val notificationsEnabled: Boolean = true,
+    val appLockEnabled: Boolean = false
 ) {
     val currencySymbol: String
         get() = Currency.fromCode(currencyCode).symbol

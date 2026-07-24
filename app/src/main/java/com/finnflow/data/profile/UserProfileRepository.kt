@@ -9,4 +9,6 @@ interface UserProfileRepository {
     suspend fun clearProfile()
     suspend fun setCurrencyCode(code: String)
     suspend fun setThemeMode(mode: String)
+    suspend fun setNotificationsEnabled(enabled: Boolean)
+    suspend fun setAppLockEnabled(enabled: Boolean)
 }
