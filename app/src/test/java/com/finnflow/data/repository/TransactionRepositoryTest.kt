@@ -3,7 +3,9 @@ package com.finnflow.data.repository
 import app.cash.turbine.test
 import com.finnflow.data.db.dao.TransactionDao
 import com.finnflow.data.db.entity.TransactionEntity
+import com.finnflow.data.model.Category
 import com.finnflow.data.model.CategorySummary
+import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import io.mockk.*
@@ -12,11 +14,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 
 class TransactionRepositoryTest {
 
     private lateinit var dao: TransactionDao
+    private lateinit var categoryRepository: CategoryRepository
     private lateinit var repo: TransactionRepositoryImpl
 
     private val date = LocalDate.of(2024, 4, 1)
@@ -26,7 +30,8 @@ class TransactionRepositoryTest {
     @Before
     fun setup() {
         dao = mockk(relaxed = true)
-        repo = TransactionRepositoryImpl(dao)
+        categoryRepository = mockk(relaxed = true)
+        repo = TransactionRepositoryImpl(dao, categoryRepository)
     }
 
     @Test
@@ -91,5 +96,32 @@ class TransactionRepositoryTest {
             assertEquals(summaries, awaitItem())
             awaitComplete()
         }
+    }
+
+    @Test
+    fun exportTransactionsCsv_writesJoinedCsvToOutputStream() = runTest {
+        val tx = TransactionEntity(
+            id = 1L,
+            type = TransactionType.EXPENSE,
+            amount = 45.5,
+            date = date,
+            categoryId = 1L,
+            subCategoryId = 10L,
+            note = "Weekly shop"
+        )
+        every { dao.getAll() } returns flowOf(listOf(tx))
+        every { categoryRepository.getAllCategories() } returns flowOf(listOf(Category(id = 1L, name = "Food", type = TransactionType.EXPENSE)))
+        every { categoryRepository.getAllSubCategories() } returns flowOf(listOf(SubCategory(id = 10L, categoryId = 1L, name = "Groceries")))
+
+        val outputStream = ByteArrayOutputStream()
+        repo.exportTransactionsCsv(outputStream)
+
+        val expected = "date,type,category,subcategory,amount,note\r\n" +
+            "2024-04-01,EXPENSE,Food,Groceries,45.5,Weekly shop"
+        assertEquals(expected, outputStream.toString(Charsets.UTF_8.name()))
+
+        verify { dao.getAll() }
+        verify { categoryRepository.getAllCategories() }
+        verify { categoryRepository.getAllSubCategories() }
     }
 }

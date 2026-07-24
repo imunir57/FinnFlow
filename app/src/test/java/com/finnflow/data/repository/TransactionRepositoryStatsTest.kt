@@ -30,7 +30,7 @@ class TransactionRepositoryStatsTest {
     @Before
     fun setup() {
         dao = mockk(relaxed = true)
-        repo = TransactionRepositoryImpl(dao)
+        repo = TransactionRepositoryImpl(dao, mockk(relaxed = true))
     }
 
     // ── getSubCategorySummary ─────────────────────────────────────────────────

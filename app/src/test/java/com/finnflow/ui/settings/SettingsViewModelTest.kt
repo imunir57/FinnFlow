@@ -3,6 +3,9 @@ package com.finnflow.ui.settings
 import app.cash.turbine.test
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
+import com.finnflow.data.repository.TransactionRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -16,24 +19,27 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repo: UserProfileRepository
+    private lateinit var transactionRepository: TransactionRepository
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repo = mockk(relaxed = true)
+        transactionRepository = mockk(relaxed = true)
         every { repo.profile } returns flowOf(UserProfile())
     }
 
     @After
     fun teardown() = Dispatchers.resetMain()
 
-    private fun makeVm() = SettingsViewModel(repo)
+    private fun makeVm() = SettingsViewModel(repo, transactionRepository)
 
     @Test
     fun profile_hasDefaultInitialValue() {
@@ -81,5 +87,17 @@ class SettingsViewModelTest {
             assertEquals("", p.initials)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun exportCsv_delegatesToTransactionRepositoryAndInvokesCallback() = runTest {
+        val outputStream = ByteArrayOutputStream()
+        coEvery { transactionRepository.exportTransactionsCsv(outputStream) } returns Unit
+        var completed = false
+
+        makeVm().exportCsv(outputStream) { completed = true }
+
+        coVerify { transactionRepository.exportTransactionsCsv(outputStream) }
+        assertEquals(true, completed)
     }
 }
