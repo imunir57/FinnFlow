@@ -19,6 +19,7 @@ import com.finnflow.ui.components.BottomNavBar
 import com.finnflow.ui.home.HomeScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
+import com.finnflow.ui.settings.AboutScreen
 import com.finnflow.ui.settings.SettingsScreen
 import com.finnflow.ui.insights.InsightsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
@@ -113,12 +114,17 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onNavigateToCategories = { navController.navigate(Screen.Categories.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                    onNavigateToAbout = { navController.navigate(Screen.About.route) }
                 )
             }
 
             composable(Screen.Profile.route) {
                 ProfileScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.About.route) {
+                AboutScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Screen.Categories.route) {

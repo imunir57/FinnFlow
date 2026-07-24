@@ -48,7 +48,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
     onBack: () -> Unit = {},
     onNavigateToCategories: () -> Unit = {},
-    onNavigateToProfile: () -> Unit = {}
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToAbout: () -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
 
@@ -164,7 +165,8 @@ fun SettingsScreen(
                     icon = Icons.Default.Info,
                     iconColor = IconAbout,
                     label = "About FinnFlow",
-                    subtitle = "Version 1.0.0 · Build 102"
+                    subtitle = "Version ${com.finnflow.BuildConfig.VERSION_NAME} · Build ${com.finnflow.BuildConfig.VERSION_CODE}",
+                    onClick = onNavigateToAbout
                 )
             }
 
