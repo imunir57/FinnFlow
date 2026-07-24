@@ -100,4 +100,26 @@ class SettingsViewModelTest {
         coVerify { transactionRepository.exportTransactionsCsv(outputStream) }
         assertEquals(true, completed)
     }
+
+    // ── onCurrencySelected ───────────────────────────────────────────────
+
+    @Test
+    fun onCurrencySelected_callsRepository() = runTest {
+        val vm = makeVm()
+
+        vm.onCurrencySelected("USD")
+
+        coVerify { repo.setCurrencyCode("USD") }
+    }
+
+    // ── onThemeModeSelected ──────────────────────────────────────────────
+
+    @Test
+    fun onThemeModeSelected_callsRepository() = runTest {
+        val vm = makeVm()
+
+        vm.onThemeModeSelected("dark")
+
+        coVerify { repo.setThemeMode("dark") }
+    }
 }

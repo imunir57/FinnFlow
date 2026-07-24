@@ -34,4 +34,12 @@ class SettingsViewModel @Inject constructor(
             onComplete()
         }
     }
+
+    fun onCurrencySelected(code: String) {
+        viewModelScope.launch { profileRepository.setCurrencyCode(code) }
+    }
+
+    fun onThemeModeSelected(mode: String) {
+        viewModelScope.launch { profileRepository.setThemeMode(mode) }
+    }
 }

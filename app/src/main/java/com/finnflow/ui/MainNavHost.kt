@@ -1,5 +1,6 @@
 package com.finnflow.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -24,6 +25,7 @@ import com.finnflow.ui.settings.SettingsScreen
 import com.finnflow.ui.insights.InsightsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
 import com.finnflow.ui.stats.StatsScreen
+import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.transaction.TransactionFormScreen
 import com.finnflow.ui.yearly.YearlyScreen
 
@@ -36,10 +38,17 @@ private val bottomBarRoutes = setOf(
 @Composable
 fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     val onboardingDone by mainViewModel.hasCompletedOnboarding.collectAsState()
+    val themeMode by mainViewModel.themeMode.collectAsState()
+    val isDarkTheme = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
 
     // Wait until DataStore is read before rendering anything
     if (onboardingDone == null) return
 
+    FinnFlowTheme(darkTheme = isDarkTheme) {
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
@@ -154,5 +163,6 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 SubCategoryScreen(onNavigateBack = { navController.popBackStack() })
             }
         }
+    }
     }
 }
