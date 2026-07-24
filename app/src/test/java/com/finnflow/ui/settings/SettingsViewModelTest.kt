@@ -3,6 +3,7 @@ package com.finnflow.ui.settings
 import app.cash.turbine.test
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -81,5 +82,27 @@ class SettingsViewModelTest {
             assertEquals("", p.initials)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // ── onCurrencySelected ───────────────────────────────────────────────
+
+    @Test
+    fun onCurrencySelected_callsRepository() = runTest {
+        val vm = makeVm()
+
+        vm.onCurrencySelected("USD")
+
+        coVerify { repo.setCurrencyCode("USD") }
+    }
+
+    // ── onThemeModeSelected ──────────────────────────────────────────────
+
+    @Test
+    fun onThemeModeSelected_callsRepository() = runTest {
+        val vm = makeVm()
+
+        vm.onThemeModeSelected("dark")
+
+        coVerify { repo.setThemeMode("dark") }
     }
 }

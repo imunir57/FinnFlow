@@ -23,7 +23,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.model.Currency
 import com.finnflow.data.profile.UserProfile
+import com.finnflow.ui.components.OptionPickerSheet
+import com.finnflow.ui.components.PickerOption
 import com.finnflow.ui.theme.ExpenseClay
 import com.finnflow.ui.theme.IncomeGreen
 import com.finnflow.ui.theme.Ink
@@ -51,6 +54,9 @@ fun SettingsScreen(
     onNavigateToProfile: () -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
+
+    var showCurrencyPicker by remember { mutableStateOf(false) }
+    var showAppearancePicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -95,12 +101,13 @@ fun SettingsScreen(
                     label = "Currency",
                     right = {
                         Text(
-                            "৳",
+                            profile.currencySymbol,
                             fontFamily = FontFamily.Serif,
                             fontSize = 18.sp,
                             color = InkMedium
                         )
-                    }
+                    },
+                    onClick = { showCurrencyPicker = true }
                 )
             }
             item {
@@ -146,8 +153,9 @@ fun SettingsScreen(
                     iconColor = IconAppearance,
                     label = "Appearance",
                     right = {
-                        Text("System", fontSize = 12.5.sp, color = InkMedium)
-                    }
+                        Text(themeModeLabel(profile.themeMode), fontSize = 12.5.sp, color = InkMedium)
+                    },
+                    onClick = { showAppearancePicker = true }
                 )
             }
             item {
@@ -204,6 +212,40 @@ fun SettingsScreen(
             item { Spacer(Modifier.height(80.dp)) }
         }
     }
+
+    if (showCurrencyPicker) {
+        OptionPickerSheet(
+            options = Currency.entries.map { PickerOption(it.code, "${it.symbol}  ${it.displayName}") },
+            selectedValue = profile.currencyCode,
+            onOptionSelected = { code ->
+                viewModel.onCurrencySelected(code)
+                showCurrencyPicker = false
+            },
+            onDismiss = { showCurrencyPicker = false }
+        )
+    }
+
+    if (showAppearancePicker) {
+        OptionPickerSheet(
+            options = listOf(
+                PickerOption("system", "System"),
+                PickerOption("light", "Light"),
+                PickerOption("dark", "Dark")
+            ),
+            selectedValue = profile.themeMode,
+            onOptionSelected = { mode ->
+                viewModel.onThemeModeSelected(mode)
+                showAppearancePicker = false
+            },
+            onDismiss = { showAppearancePicker = false }
+        )
+    }
+}
+
+private fun themeModeLabel(mode: String): String = when (mode) {
+    "light" -> "Light"
+    "dark" -> "Dark"
+    else -> "System"
 }
 
 @Composable

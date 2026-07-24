@@ -16,6 +16,8 @@ class UserProfileRepositoryImpl @Inject constructor(
     private object Keys {
         val DISPLAY_NAME = stringPreferencesKey("profile_display_name")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
+        val CURRENCY_CODE = stringPreferencesKey("profile_currency_code")
+        val THEME_MODE = stringPreferencesKey("profile_theme_mode")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -23,7 +25,9 @@ class UserProfileRepositoryImpl @Inject constructor(
         UserProfile(
             displayName = name,
             initials = name.toInitials(),
-            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false
+            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false,
+            currencyCode = prefs[Keys.CURRENCY_CODE] ?: "BDT",
+            themeMode = prefs[Keys.THEME_MODE] ?: "system"
         )
     }
 
@@ -41,6 +45,18 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     override suspend fun clearProfile() {
         dataStore.edit { it.clear() }
+    }
+
+    override suspend fun setCurrencyCode(code: String) {
+        dataStore.edit { prefs ->
+            prefs[Keys.CURRENCY_CODE] = code
+        }
+    }
+
+    override suspend fun setThemeMode(mode: String) {
+        dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = mode
+        }
     }
 }
 

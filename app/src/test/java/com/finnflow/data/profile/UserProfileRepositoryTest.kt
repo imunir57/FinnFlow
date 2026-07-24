@@ -34,6 +34,8 @@ class UserProfileRepositoryTest {
     // Mirror the private keys used in the impl
     private val KEY_NAME = stringPreferencesKey("profile_display_name")
     private val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
+    private val KEY_CURRENCY = stringPreferencesKey("profile_currency_code")
+    private val KEY_THEME = stringPreferencesKey("profile_theme_mode")
 
     @Before
     fun setup() {
@@ -92,6 +94,32 @@ class UserProfileRepositoryTest {
         }
     }
 
+    @Test
+    fun profile_withEmptyPrefs_defaultsCurrencyAndTheme() = runTest {
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        repo.profile.test {
+            val p = awaitItem()
+            assertEquals("BDT", p.currencyCode)
+            assertEquals("system", p.themeMode)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withSavedCurrencyAndTheme_mapsThem() = runTest {
+        every { dataStore.data } returns flowOf(
+            preferencesOf(KEY_CURRENCY to "USD", KEY_THEME to "dark")
+        )
+
+        repo.profile.test {
+            val p = awaitItem()
+            assertEquals("USD", p.currencyCode)
+            assertEquals("dark", p.themeMode)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── saveProfile ───────────────────────────────────────────────────────
 
     @Test
@@ -145,5 +173,49 @@ class UserProfileRepositoryTest {
         repo.clearProfile()
 
         coVerify { dataStore.updateData(any()) }
+    }
+
+    // ── setCurrencyCode ───────────────────────────────────────────────────
+
+    @Test
+    fun setCurrencyCode_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.setCurrencyCode("USD")
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun setCurrencyCode_storesCode() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.setCurrencyCode("EUR")
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals("EUR", result[KEY_CURRENCY])
+    }
+
+    // ── setThemeMode ──────────────────────────────────────────────────────
+
+    @Test
+    fun setThemeMode_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.setThemeMode("dark")
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun setThemeMode_storesMode() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.setThemeMode("light")
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals("light", result[KEY_THEME])
     }
 }

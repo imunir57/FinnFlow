@@ -18,4 +18,8 @@ class MainViewModel @Inject constructor(
     val hasCompletedOnboarding = profileRepository.profile
         .map { it.hasCompletedOnboarding as Boolean? }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val themeMode = profileRepository.profile
+        .map { it.themeMode }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
 }

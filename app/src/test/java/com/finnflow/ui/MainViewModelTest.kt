@@ -82,4 +82,23 @@ class MainViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun themeMode_defaultsToSystem() {
+        every { repo.profile } returns flowOf(UserProfile())
+        val vm = makeVm()
+        assertEquals("system", vm.themeMode.value)
+    }
+
+    @Test
+    fun themeMode_reflectsRepositoryValue() = runTest {
+        every { repo.profile } returns flowOf(UserProfile(themeMode = "dark"))
+
+        makeVm().themeMode.test {
+            var last = awaitItem()
+            while (last != "dark") { last = awaitItem() }
+            assertEquals("dark", last)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
