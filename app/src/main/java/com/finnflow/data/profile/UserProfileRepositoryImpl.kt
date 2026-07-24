@@ -16,6 +16,8 @@ class UserProfileRepositoryImpl @Inject constructor(
     private object Keys {
         val DISPLAY_NAME = stringPreferencesKey("profile_display_name")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+        val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -23,7 +25,9 @@ class UserProfileRepositoryImpl @Inject constructor(
         UserProfile(
             displayName = name,
             initials = name.toInitials(),
-            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false
+            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false,
+            notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
+            appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false
         )
     }
 
@@ -41,6 +45,18 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     override suspend fun clearProfile() {
         dataStore.edit { it.clear() }
+    }
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[Keys.NOTIFICATIONS_ENABLED] = enabled
+        }
+    }
+
+    override suspend fun setAppLockEnabled(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[Keys.APP_LOCK_ENABLED] = enabled
+        }
     }
 }
 

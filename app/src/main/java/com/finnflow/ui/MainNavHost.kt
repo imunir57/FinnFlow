@@ -17,6 +17,7 @@ import com.finnflow.ui.category.CategoryScreen
 import com.finnflow.ui.category.SubCategoryScreen
 import com.finnflow.ui.components.BottomNavBar
 import com.finnflow.ui.home.HomeScreen
+import com.finnflow.ui.lock.AppLockScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
 import com.finnflow.ui.settings.SettingsScreen
@@ -35,9 +36,16 @@ private val bottomBarRoutes = setOf(
 @Composable
 fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     val onboardingDone by mainViewModel.hasCompletedOnboarding.collectAsState()
+    val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
+    val isUnlocked by mainViewModel.isUnlocked.collectAsState()
 
     // Wait until DataStore is read before rendering anything
     if (onboardingDone == null) return
+
+    if (appLockEnabled && !isUnlocked) {
+        AppLockScreen(onUnlocked = mainViewModel::onUnlocked)
+        return
+    }
 
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()

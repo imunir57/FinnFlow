@@ -7,4 +7,6 @@ interface UserProfileRepository {
     suspend fun saveProfile(name: String)
     suspend fun completeOnboarding()
     suspend fun clearProfile()
+    suspend fun setNotificationsEnabled(enabled: Boolean)
+    suspend fun setAppLockEnabled(enabled: Boolean)
 }

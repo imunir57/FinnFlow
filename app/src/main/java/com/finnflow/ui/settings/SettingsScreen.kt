@@ -1,5 +1,9 @@
 package com.finnflow.ui.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,12 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.ui.theme.ExpenseClay
@@ -51,6 +57,15 @@ fun SettingsScreen(
     onNavigateToProfile: () -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
+    val appLockMessage by viewModel.appLockMessage.collectAsState()
+    val context = LocalContext.current
+    val activity = context as? FragmentActivity
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.onNotificationsToggled(true)
+    }
 
     Column(
         modifier = Modifier
@@ -109,7 +124,14 @@ fun SettingsScreen(
                     iconColor = IconNotify,
                     label = "Notifications",
                     subtitle = "Daily reminder · 9:00 PM",
-                    initiallyOn = true
+                    checked = profile.notificationsEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            viewModel.onNotificationsToggled(enabled)
+                        }
+                    }
                 )
             }
 
@@ -155,8 +177,9 @@ fun SettingsScreen(
                     icon = Icons.Default.Lock,
                     iconColor = IconAppLock,
                     label = "App Lock",
-                    subtitle = "Require fingerprint to open",
-                    initiallyOn = false
+                    subtitle = appLockMessage ?: "Require fingerprint to open",
+                    checked = profile.appLockEnabled,
+                    onCheckedChange = { enabled -> viewModel.onAppLockToggled(enabled, activity) }
                 )
             }
             item {
@@ -311,9 +334,9 @@ private fun ToggleRow(
     iconColor: Color,
     label: String,
     subtitle: String? = null,
-    initiallyOn: Boolean = false
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
 ) {
-    var on by remember { mutableStateOf(initiallyOn) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -330,8 +353,8 @@ private fun ToggleRow(
             }
         }
         Switch(
-            checked = on,
-            onCheckedChange = { on = it },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = WarmPaper,
                 checkedTrackColor = Ink,

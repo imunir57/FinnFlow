@@ -34,6 +34,8 @@ class UserProfileRepositoryTest {
     // Mirror the private keys used in the impl
     private val KEY_NAME = stringPreferencesKey("profile_display_name")
     private val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
+    private val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
+    private val KEY_APP_LOCK = booleanPreferencesKey("app_lock_enabled")
 
     @Before
     fun setup() {
@@ -92,6 +94,46 @@ class UserProfileRepositoryTest {
         }
     }
 
+    @Test
+    fun profile_withEmptyPrefs_notificationsDefaultTrue() = runTest {
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        repo.profile.test {
+            assertTrue(awaitItem().notificationsEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withNotificationsDisabled_mapsFlag() = runTest {
+        every { dataStore.data } returns flowOf(preferencesOf(KEY_NOTIFICATIONS to false))
+
+        repo.profile.test {
+            assertFalse(awaitItem().notificationsEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withEmptyPrefs_appLockDefaultFalse() = runTest {
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        repo.profile.test {
+            assertFalse(awaitItem().appLockEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withAppLockEnabled_mapsFlag() = runTest {
+        every { dataStore.data } returns flowOf(preferencesOf(KEY_APP_LOCK to true))
+
+        repo.profile.test {
+            assertTrue(awaitItem().appLockEnabled)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── saveProfile ───────────────────────────────────────────────────────
 
     @Test
@@ -145,5 +187,49 @@ class UserProfileRepositoryTest {
         repo.clearProfile()
 
         coVerify { dataStore.updateData(any()) }
+    }
+
+    // ── setNotificationsEnabled ──────────────────────────────────────────
+
+    @Test
+    fun setNotificationsEnabled_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.setNotificationsEnabled(false)
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun setNotificationsEnabled_storesFlag() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.setNotificationsEnabled(false)
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals(false, result[KEY_NOTIFICATIONS])
+    }
+
+    // ── setAppLockEnabled ─────────────────────────────────────────────────
+
+    @Test
+    fun setAppLockEnabled_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.setAppLockEnabled(true)
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun setAppLockEnabled_storesFlag() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.setAppLockEnabled(true)
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals(true, result[KEY_APP_LOCK])
     }
 }
