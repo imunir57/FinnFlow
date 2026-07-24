@@ -63,8 +63,10 @@ class SettingsViewModelTest {
         every { repo.profile } returns flowOf(first, second)
 
         makeVm().profile.test {
-            assertEquals(first, awaitItem())
-            assertEquals(second, awaitItem())
+            // StateFlow may conflate first+second; loop until second arrives
+            var item: UserProfile? = null
+            while (item != second) { item = awaitItem() }
+            assertEquals(second, item)
             cancelAndIgnoreRemainingEvents()
         }
     }

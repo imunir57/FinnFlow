@@ -60,17 +60,27 @@ class YearlyViewModelTest {
     @Test
     fun previousYear_decrementsYear() = runTest {
         val vm = YearlyViewModel(repo)
-        val currentYear = vm.state.value.year
-        vm.previousYear()
-        assertEquals(currentYear - 1, vm.state.value.year)
+        vm.state.test {
+            val initial = awaitItem()
+            val currentYear = initial.year
+            vm.previousYear()
+            val updated = awaitItem()
+            assertEquals(currentYear - 1, updated.year)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
     fun nextYear_incrementsYear() = runTest {
         val vm = YearlyViewModel(repo)
-        val currentYear = vm.state.value.year
-        vm.nextYear()
-        assertEquals(currentYear + 1, vm.state.value.year)
+        vm.state.test {
+            val initial = awaitItem()
+            val currentYear = initial.year
+            vm.nextYear()
+            val updated = awaitItem()
+            assertEquals(currentYear + 1, updated.year)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

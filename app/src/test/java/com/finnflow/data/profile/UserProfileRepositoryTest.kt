@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
-import io.mockk.coAnswers
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -97,7 +96,7 @@ class UserProfileRepositoryTest {
 
     @Test
     fun saveProfile_callsUpdateData() = runTest {
-        coEvery { dataStore.updateData(any()) } coAnswers { emptyPreferences() }
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
 
         repo.saveProfile("Alice")
 
@@ -107,9 +106,7 @@ class UserProfileRepositoryTest {
     @Test
     fun saveProfile_storesNameTrimmed() = runTest {
         val transformSlot = slot<suspend (Preferences) -> Preferences>()
-        coEvery { dataStore.updateData(capture(transformSlot)) } coAnswers {
-            transformSlot.captured(emptyPreferences())
-        }
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
 
         repo.saveProfile("  Alice  ")
 
@@ -121,7 +118,7 @@ class UserProfileRepositoryTest {
 
     @Test
     fun completeOnboarding_callsUpdateData() = runTest {
-        coEvery { dataStore.updateData(any()) } coAnswers { emptyPreferences() }
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
 
         repo.completeOnboarding()
 
@@ -131,9 +128,7 @@ class UserProfileRepositoryTest {
     @Test
     fun completeOnboarding_setsOnboardingFlagTrue() = runTest {
         val transformSlot = slot<suspend (Preferences) -> Preferences>()
-        coEvery { dataStore.updateData(capture(transformSlot)) } coAnswers {
-            transformSlot.captured(emptyPreferences())
-        }
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
 
         repo.completeOnboarding()
 
@@ -145,7 +140,7 @@ class UserProfileRepositoryTest {
 
     @Test
     fun clearProfile_callsUpdateData() = runTest {
-        coEvery { dataStore.updateData(any()) } coAnswers { emptyPreferences() }
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
 
         repo.clearProfile()
 

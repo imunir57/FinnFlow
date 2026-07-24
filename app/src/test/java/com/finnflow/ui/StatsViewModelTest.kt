@@ -68,39 +68,47 @@ class StatsViewModelTest {
     @Test
     fun onTypeChange_switchesToIncome() = runTest {
         val vm = StatsViewModel(repo)
-        vm.onTypeChange(TransactionType.INCOME)
-        assertEquals(1, vm.state.value.activeSummary.size)
-        assertEquals(3000.0, vm.state.value.totalAmount, 0.001)
+        vm.state.test {
+            awaitItem() // initial expense state
+            vm.onTypeChange(TransactionType.INCOME)
+            val updated = awaitItem()
+            assertEquals(1, updated.activeSummary.size)
+            assertEquals(3000.0, updated.totalAmount, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
     fun onPeriodChange_monthly_setsCurrentMonthRange() {
         val vm = StatsViewModel(repo)
         vm.onPeriodChange(StatsPeriod.MONTHLY)
-        val state = vm.state.value
-        assertEquals(YearMonth.now().atDay(1), state.from)
-        assertEquals(YearMonth.now().atEndOfMonth(), state.to)
+        assertEquals(YearMonth.now().atDay(1), vm.currentFrom)
+        assertEquals(YearMonth.now().atEndOfMonth(), vm.currentTo)
     }
 
     @Test
     fun onPeriodChange_annually_setsCurrentYearRange() {
         val vm = StatsViewModel(repo)
         vm.onPeriodChange(StatsPeriod.ANNUALLY)
-        val state = vm.state.value
         val today = LocalDate.now()
-        assertEquals(today.withDayOfYear(1), state.from)
-        assertEquals(today.withDayOfYear(today.lengthOfYear()), state.to)
+        assertEquals(today.withDayOfYear(1), vm.currentFrom)
+        assertEquals(today.withDayOfYear(today.lengthOfYear()), vm.currentTo)
     }
 
     @Test
-    fun onCustomRange_setsCustomPeriodAndDates() {
+    fun onCustomRange_setsCustomPeriodAndDates() = runTest {
         val vm = StatsViewModel(repo)
         val from = LocalDate.of(2024, 1, 1)
         val to = LocalDate.of(2024, 3, 31)
-        vm.onCustomRangeChange(from, to)
-        assertEquals(StatsPeriod.CUSTOM, vm.state.value.period)
-        assertEquals(from, vm.state.value.from)
-        assertEquals(to, vm.state.value.to)
+        vm.state.test {
+            awaitItem() // initial state
+            vm.onCustomRangeChange(from, to)
+            val updated = awaitItem()
+            assertEquals(StatsPeriod.CUSTOM, updated.period)
+            assertEquals(from, updated.from)
+            assertEquals(to, updated.to)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
