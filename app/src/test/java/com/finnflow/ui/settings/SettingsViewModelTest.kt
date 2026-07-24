@@ -3,6 +3,9 @@ package com.finnflow.ui.settings
 import app.cash.turbine.test
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
+import com.finnflow.data.repository.BackupRepository
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -16,24 +19,28 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repo: UserProfileRepository
+    private lateinit var backupRepo: BackupRepository
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repo = mockk(relaxed = true)
+        backupRepo = mockk(relaxed = true)
         every { repo.profile } returns flowOf(UserProfile())
     }
 
     @After
     fun teardown() = Dispatchers.resetMain()
 
-    private fun makeVm() = SettingsViewModel(repo)
+    private fun makeVm() = SettingsViewModel(repo, backupRepo)
 
     @Test
     fun profile_hasDefaultInitialValue() {
@@ -79,6 +86,89 @@ class SettingsViewModelTest {
             val p = awaitItem()
             assertEquals("", p.displayName)
             assertEquals("", p.initials)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    // ── performBackup ─────────────────────────────────────────────────────
+
+    @Test
+    fun performBackup_withNullStream_emitsErrorMessage() = runTest {
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performBackup(null)
+            assertEquals("Couldn't open the selected file", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun performBackup_success_exportsAndUpdatesTimestampAndNotifies() = runTest {
+        val out = ByteArrayOutputStream()
+        coEvery { backupRepo.exportBackup(out) } returns Unit
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performBackup(out)
+            assertEquals("Backup saved", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify { backupRepo.exportBackup(out) }
+        coVerify { repo.setLastBackupTimestamp(any()) }
+    }
+
+    @Test
+    fun performBackup_failure_emitsFailureMessage() = runTest {
+        val out = ByteArrayOutputStream()
+        coEvery { backupRepo.exportBackup(out) } throws RuntimeException("disk full")
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performBackup(out)
+            assertEquals("Backup failed: disk full", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { repo.setLastBackupTimestamp(any()) }
+    }
+
+    // ── performRestore ────────────────────────────────────────────────────
+
+    @Test
+    fun performRestore_withNullStream_emitsErrorMessage() = runTest {
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performRestore(null)
+            assertEquals("Couldn't open the selected file", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun performRestore_success_emitsSuccessMessage() = runTest {
+        val input = ByteArrayInputStream(ByteArray(0))
+        coEvery { backupRepo.restoreBackup(input) } returns Result.success(Unit)
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performRestore(input)
+            assertEquals("Restore complete", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun performRestore_failure_emitsFailureMessage() = runTest {
+        val input = ByteArrayInputStream(ByteArray(0))
+        coEvery { backupRepo.restoreBackup(input) } returns Result.failure(IllegalArgumentException("bad file"))
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performRestore(input)
+            assertEquals("Restore failed: bad file", awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }

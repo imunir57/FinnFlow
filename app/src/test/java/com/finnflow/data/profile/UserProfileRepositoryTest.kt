@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
@@ -34,6 +35,7 @@ class UserProfileRepositoryTest {
     // Mirror the private keys used in the impl
     private val KEY_NAME = stringPreferencesKey("profile_display_name")
     private val KEY_ONBOARDING = booleanPreferencesKey("onboarding_completed")
+    private val KEY_LAST_BACKUP = longPreferencesKey("last_backup_timestamp")
 
     @Before
     fun setup() {
@@ -92,6 +94,26 @@ class UserProfileRepositoryTest {
         }
     }
 
+    @Test
+    fun profile_withNoBackup_hasNullTimestamp() = runTest {
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        repo.profile.test {
+            assertNull(awaitItem().lastBackupTimestamp)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withSavedBackupTimestamp_mapsValue() = runTest {
+        every { dataStore.data } returns flowOf(preferencesOf(KEY_LAST_BACKUP to 12345L))
+
+        repo.profile.test {
+            assertEquals(12345L, awaitItem().lastBackupTimestamp)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // ── saveProfile ───────────────────────────────────────────────────────
 
     @Test
@@ -145,5 +167,27 @@ class UserProfileRepositoryTest {
         repo.clearProfile()
 
         coVerify { dataStore.updateData(any()) }
+    }
+
+    // ── setLastBackupTimestamp ───────────────────────────────────────────
+
+    @Test
+    fun setLastBackupTimestamp_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.setLastBackupTimestamp(999L)
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun setLastBackupTimestamp_storesValue() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.setLastBackupTimestamp(999L)
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals(999L, result[KEY_LAST_BACKUP])
     }
 }

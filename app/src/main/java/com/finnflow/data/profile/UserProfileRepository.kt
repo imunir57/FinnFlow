@@ -7,4 +7,5 @@ interface UserProfileRepository {
     suspend fun saveProfile(name: String)
     suspend fun completeOnboarding()
     suspend fun clearProfile()
+    suspend fun setLastBackupTimestamp(timestamp: Long)
 }

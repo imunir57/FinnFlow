@@ -6,6 +6,8 @@ import com.finnflow.data.db.AppDatabase
 import com.finnflow.data.db.DatabaseSeeder
 import com.finnflow.data.db.dao.CategoryDao
 import com.finnflow.data.db.dao.TransactionDao
+import com.finnflow.data.repository.BackupRepository
+import com.finnflow.data.repository.BackupRepositoryImpl
 import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.CategoryRepositoryImpl
 import com.finnflow.data.repository.TransactionRepository
@@ -50,4 +52,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindCategoryRepository(impl: CategoryRepositoryImpl): CategoryRepository
+
+    @Binds
+    abstract fun bindBackupRepository(impl: BackupRepositoryImpl): BackupRepository
 }

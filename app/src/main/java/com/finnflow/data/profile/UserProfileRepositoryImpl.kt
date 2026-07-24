@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -16,6 +17,7 @@ class UserProfileRepositoryImpl @Inject constructor(
     private object Keys {
         val DISPLAY_NAME = stringPreferencesKey("profile_display_name")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
+        val LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -23,7 +25,8 @@ class UserProfileRepositoryImpl @Inject constructor(
         UserProfile(
             displayName = name,
             initials = name.toInitials(),
-            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false
+            hasCompletedOnboarding = prefs[Keys.ONBOARDING_DONE] ?: false,
+            lastBackupTimestamp = prefs[Keys.LAST_BACKUP_TIMESTAMP]
         )
     }
 
@@ -41,6 +44,12 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     override suspend fun clearProfile() {
         dataStore.edit { it.clear() }
+    }
+
+    override suspend fun setLastBackupTimestamp(timestamp: Long) {
+        dataStore.edit { prefs ->
+            prefs[Keys.LAST_BACKUP_TIMESTAMP] = timestamp
+        }
     }
 }
 
