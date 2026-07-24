@@ -8,7 +8,9 @@ import com.finnflow.data.model.SubCategorySummary
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.io.OutputStream
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -30,11 +32,15 @@ interface TransactionRepository {
     ): Flow<List<Transaction>>
 
     fun getAllTransactions(): Flow<List<Transaction>>
+
+    /** Writes all transactions as CSV (date, type, category, subcategory, amount, note) to [outputStream]. */
+    suspend fun exportTransactionsCsv(outputStream: OutputStream)
 }
 
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
-    private val dao: TransactionDao
+    private val dao: TransactionDao,
+    private val categoryRepository: CategoryRepository
 ) : TransactionRepository {
 
     override suspend fun addTransaction(transaction: Transaction) =
@@ -72,4 +78,16 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override fun getAllTransactions() =
         dao.getAll().map { list -> list.map { it.toDomain() } }
+
+    override suspend fun exportTransactionsCsv(outputStream: OutputStream) {
+        val transactions = dao.getAll().first().map { it.toDomain() }
+        val categoryNames = categoryRepository.getAllCategories().first().associate { it.id to it.name }
+        val subCategoryNames = categoryRepository.getAllSubCategories().first().associate { it.id to it.name }
+
+        val csv = transactions.toCsv(
+            categoryNameOf = { id -> categoryNames[id] ?: "" },
+            subCategoryNameOf = { id -> id?.let { subCategoryNames[it] } }
+        )
+        outputStream.use { it.write(csv.toByteArray(Charsets.UTF_8)) }
+    }
 }

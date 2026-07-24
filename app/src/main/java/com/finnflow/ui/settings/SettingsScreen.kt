@@ -1,5 +1,9 @@
 package com.finnflow.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +37,7 @@ import com.finnflow.ui.theme.InkMedium
 import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
+import java.time.LocalDate
 
 private val IconCategories   = Color(0xFF7A5C3E)
 private val IconCurrency     = Color(0xFF3E4A8A)
@@ -51,6 +57,26 @@ fun SettingsScreen(
     onNavigateToProfile: () -> Unit = {}
 ) {
     val profile by viewModel.profile.collectAsState()
+    val context = LocalContext.current
+
+    var pendingExportUri by remember { mutableStateOf<Uri?>(null) }
+
+    val exportCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val outputStream = context.contentResolver.openOutputStream(uri) ?: return@rememberLauncherForActivityResult
+        pendingExportUri = uri
+        viewModel.exportCsv(outputStream) {
+            val savedUri = pendingExportUri ?: return@exportCsv
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/csv"
+                putExtra(Intent.EXTRA_STREAM, savedUri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(shareIntent, "Share transactions CSV"))
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -135,7 +161,10 @@ fun SettingsScreen(
                     icon = Icons.Default.Share,
                     iconColor = IconExport,
                     label = "Export to CSV",
-                    subtitle = "Share your transactions as a spreadsheet"
+                    subtitle = "Share your transactions as a spreadsheet",
+                    onClick = {
+                        exportCsvLauncher.launch("finnflow-transactions-${LocalDate.now()}.csv")
+                    }
                 )
             }
 
