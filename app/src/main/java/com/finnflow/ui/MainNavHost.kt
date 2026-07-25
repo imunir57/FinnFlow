@@ -1,5 +1,6 @@
 package com.finnflow.ui
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -17,12 +18,15 @@ import com.finnflow.ui.category.CategoryScreen
 import com.finnflow.ui.category.SubCategoryScreen
 import com.finnflow.ui.components.BottomNavBar
 import com.finnflow.ui.home.HomeScreen
+import com.finnflow.ui.lock.AppLockScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
+import com.finnflow.ui.settings.AboutScreen
 import com.finnflow.ui.settings.SettingsScreen
 import com.finnflow.ui.insights.InsightsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
 import com.finnflow.ui.stats.StatsScreen
+import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.transaction.TransactionFormScreen
 import com.finnflow.ui.yearly.YearlyScreen
 
@@ -35,9 +39,23 @@ private val bottomBarRoutes = setOf(
 @Composable
 fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     val onboardingDone by mainViewModel.hasCompletedOnboarding.collectAsState()
+    val themeMode by mainViewModel.themeMode.collectAsState()
+    val isDarkTheme = when (themeMode) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
+    val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
+    val isUnlocked by mainViewModel.isUnlocked.collectAsState()
 
     // Wait until DataStore is read before rendering anything
     if (onboardingDone == null) return
+
+    FinnFlowTheme(darkTheme = isDarkTheme) {
+    if (appLockEnabled && !isUnlocked) {
+        AppLockScreen(onUnlocked = mainViewModel::onUnlocked)
+        return@FinnFlowTheme
+    }
 
     val navController = rememberNavController()
     val backStack by navController.currentBackStackEntryAsState()
@@ -113,12 +131,17 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
                     onNavigateToCategories = { navController.navigate(Screen.Categories.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                    onNavigateToAbout = { navController.navigate(Screen.About.route) }
                 )
             }
 
             composable(Screen.Profile.route) {
                 ProfileScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.About.route) {
+                AboutScreen(onBack = { navController.popBackStack() })
             }
 
             composable(Screen.Categories.route) {
@@ -148,5 +171,6 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 SubCategoryScreen(onNavigateBack = { navController.popBackStack() })
             }
         }
+    }
     }
 }
