@@ -10,6 +10,7 @@ import com.finnflow.data.model.TransactionType
 import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -25,6 +26,7 @@ data class TransactionFormState(
     val note: String = "",
     val categories: List<Category> = emptyList(),
     val subCategories: List<SubCategory> = emptyList(),
+    val isLoadingSubCategories: Boolean = false,
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
     val error: String? = null
@@ -49,13 +51,20 @@ class TransactionViewModel @Inject constructor(
     private val _state = MutableStateFlow(TransactionFormState())
     val state: StateFlow<TransactionFormState> = _state.asStateFlow()
 
+    // Each load replaces the previous collector. Without cancelling, switching type or
+    // category leaves the old Flow collecting and a late emission overwrites the list
+    // with the previously selected category's data.
+    private var categoriesJob: Job? = null
+    private var subCategoriesJob: Job? = null
+
     init {
         loadCategories()
         transactionId?.let { loadTransaction(it) }
     }
 
     private fun loadCategories() {
-        viewModelScope.launch {
+        categoriesJob?.cancel()
+        categoriesJob = viewModelScope.launch {
             categoryRepo.getCategoriesByType(_state.value.type).collect { cats ->
                 _state.update { it.copy(categories = cats) }
             }
@@ -74,7 +83,8 @@ class TransactionViewModel @Inject constructor(
                         categoryId = tx.categoryId,
                         subCategoryId = tx.subCategoryId,
                         note = tx.note,
-                        isLoading = false
+                        isLoading = false,
+                        isLoadingSubCategories = true
                     )
                 }
                 loadSubCategories(tx.categoryId)
@@ -83,15 +93,25 @@ class TransactionViewModel @Inject constructor(
     }
 
     private fun loadSubCategories(categoryId: Long) {
-        viewModelScope.launch {
+        subCategoriesJob?.cancel()
+        subCategoriesJob = viewModelScope.launch {
             categoryRepo.getSubCategories(categoryId).collect { subs ->
-                _state.update { it.copy(subCategories = subs) }
+                _state.update { it.copy(subCategories = subs, isLoadingSubCategories = false) }
             }
         }
     }
 
     fun onTypeChange(type: TransactionType) {
-        _state.update { it.copy(type = type, categoryId = null, subCategoryId = null, subCategories = emptyList()) }
+        subCategoriesJob?.cancel()
+        _state.update {
+            it.copy(
+                type = type,
+                categoryId = null,
+                subCategoryId = null,
+                subCategories = emptyList(),
+                isLoadingSubCategories = false
+            )
+        }
         loadCategories()
     }
 
@@ -110,6 +130,17 @@ class TransactionViewModel @Inject constructor(
         s.copy(amount = s.amount.dropLast(1))
     }
 
+    /** No-op once the amount already has a decimal point; seeds a leading zero if empty. */
+    fun onAmountDecimal() = _state.update { s ->
+        when {
+            s.amount.contains('.') -> s
+            s.amount.isEmpty()     -> s.copy(amount = "0.")
+            else                   -> s.copy(amount = s.amount + ".")
+        }
+    }
+
+    fun onAmountClear() = _state.update { it.copy(amount = "") }
+
     fun onDateChipChange(index: Int) {
         val today = LocalDate.now()
         val newDate = when (index) {
@@ -125,7 +156,14 @@ class TransactionViewModel @Inject constructor(
     fun onNoteChange(note: String) = _state.update { it.copy(note = note) }
 
     fun onCategoryChange(categoryId: Long) {
-        _state.update { it.copy(categoryId = categoryId, subCategoryId = null, subCategories = emptyList()) }
+        _state.update {
+            it.copy(
+                categoryId = categoryId,
+                subCategoryId = null,
+                subCategories = emptyList(),
+                isLoadingSubCategories = true
+            )
+        }
         loadSubCategories(categoryId)
     }
 
