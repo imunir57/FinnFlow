@@ -277,7 +277,8 @@ fun SettingsScreen(
 
             item {
                 OutlinedButton(
-                    onClick = {},
+                    onClick = { viewModel.onSignOut(context) },
+                    enabled = profile.isSignedIn,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)

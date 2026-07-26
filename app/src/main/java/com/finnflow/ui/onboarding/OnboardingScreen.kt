@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -33,12 +34,23 @@ fun OnboardingScreen(
 ) {
     var name by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         viewModel.navigateHome.collectLatest { onFinished() }
     }
 
-    Scaffold(containerColor = WarmPaper) { padding ->
+    LaunchedEffect(Unit) {
+        viewModel.messages.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    Scaffold(
+        containerColor = WarmPaper,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -146,9 +158,16 @@ fun OnboardingScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Future: Google Sign-In (for sync / backup)
+            OutlinedButton(
+                onClick = { viewModel.onSignInWithGoogle(context, name) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("Sign in with Google", fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(4.dp))
             Text(
-                "Sign in with Google coming soon — for sync & backup",
+                "For a signed-in profile — no cloud sync yet",
                 fontSize = 11.sp,
                 color = InkFaint,
                 modifier = Modifier.padding(bottom = 24.dp)

@@ -1,8 +1,10 @@
 package com.finnflow.ui.settings
 
+import android.content.Context
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.biometric.BiometricAuthenticator
 import com.finnflow.data.notification.ReminderScheduler
 import com.finnflow.data.profile.UserProfile
@@ -28,7 +30,8 @@ class SettingsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val reminderScheduler: ReminderScheduler,
     private val biometricAuthenticator: BiometricAuthenticator,
-    private val backupRepository: BackupRepository
+    private val backupRepository: BackupRepository,
+    private val googleAuthClient: GoogleAuthClient
 ) : ViewModel() {
 
     val profile: StateFlow<UserProfile> = profileRepository.profile
@@ -123,6 +126,14 @@ class SettingsViewModel @Inject constructor(
                 onSuccess = { _messages.send("Restore complete") },
                 onFailure = { _messages.send("Restore failed: ${it.message ?: "invalid backup file"}") }
             )
+        }
+    }
+
+    fun onSignOut(context: Context) {
+        viewModelScope.launch {
+            googleAuthClient.signOut(context)
+            profileRepository.signOutGoogle()
+            _messages.send("Signed out")
         }
     }
 }

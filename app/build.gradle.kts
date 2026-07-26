@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +8,22 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+}
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(FileInputStream(file))
+}
+
+// local.properties is gitignored, so a fresh clone or CI build won't have this. The build
+// still succeeds — unit tests and every non-auth feature must stay buildable without it —
+// but Google Sign-In returns a "not configured" error at runtime. See README.
+val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+if (googleWebClientId.isBlank()) {
+    logger.warn(
+        "GOOGLE_WEB_CLIENT_ID is not set in local.properties — " +
+            "Google Sign-In will be disabled in this build."
+    )
 }
 
 android {
@@ -19,6 +38,8 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "com.finnflow.HiltTestRunner"
+
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     packaging {
@@ -84,6 +105,11 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.kotlinx.serialization.json)
+
+    // Google Sign-In (Credential Manager)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
 
     // Hilt
     implementation(libs.hilt.android)
