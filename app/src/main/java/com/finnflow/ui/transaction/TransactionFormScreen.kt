@@ -2,6 +2,8 @@ package com.finnflow.ui.transaction
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
@@ -14,7 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,6 +41,28 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
+
+/**
+ * Sections the form auto-advances through, in layout order. Completing a selection in
+ * one scrolls the next into view, so the user never has to hunt past the category grid
+ * by hand. Hand-off is explicit per call site, since Category skips straight to Note
+ * when the chosen category has no subcategories.
+ */
+private enum class FormSection { Amount, Date, Category, SubCategory, Note }
+
+/** Headroom left above a section header when it is scrolled to. */
+private val SectionHeadroom = 12.dp
+
+/** Window-space bounds of a section, refreshed on every layout and scroll pass. */
+private data class SectionBounds(val top: Float, val height: Int)
+
+private fun Modifier.sectionAnchor(
+    section: FormSection,
+    anchors: MutableMap<FormSection, SectionBounds>
+) = onGloballyPositioned {
+    anchors[section] = SectionBounds(it.positionInWindow().y, it.size.height)
+}
 
 private fun parseCatColor(hex: String): Color = try {
     Color(android.graphics.Color.parseColor(hex))
@@ -85,6 +113,69 @@ fun TransactionFormScreen(
         if (state.isSaved) onNavigateBack()
     }
 
+    // ── Auto-advance ────────────────────────────────────────────────────────
+    // Anchors are measured in window space and refreshed on every scroll, so the
+    // target is computed against live positions rather than a stale layout pass.
+    val scrollState = rememberScrollState()
+    val anchors = remember { mutableStateMapOf<FormSection, SectionBounds>() }
+    var viewportTop by remember { mutableFloatStateOf(0f) }
+    var viewportHeight by remember { mutableIntStateOf(0) }
+    val headroomPx = with(LocalDensity.current) { SectionHeadroom.toPx() }
+
+    // Set by a selection, cleared once the scroll runs. Only user taps set this, so
+    // opening an existing transaction for edit never yanks the form around.
+    var pendingSection by remember { mutableStateOf<FormSection?>(null) }
+
+    // Amount is the first field, so the keypad starts open. Every interaction outside the
+    // amount section dismisses it; tapping the amount back brings it up.
+    var showNumpad by remember { mutableStateOf(true) }
+
+    /** Leaves the amount section for [next], collapsing the keypad on the way out. */
+    fun advanceTo(next: FormSection) {
+        showNumpad = false
+        pendingSection = next
+    }
+
+    /** Returns to the amount section and reopens the keypad. */
+    fun focusAmount() {
+        showNumpad = true
+        pendingSection = FormSection.Amount
+    }
+
+    suspend fun scrollToSection(section: FormSection) {
+        // The sub-category section is composed in the same frame its data arrives, so its
+        // anchor is stale (or missing) right now. Wait out the frame so layout has run.
+        withFrameNanos { }
+        val bounds = anchors[section] ?: return
+        val relativeTop = bounds.top - viewportTop
+        // Already fully on screen — moving would be noise, not help.
+        if (relativeTop >= 0f && relativeTop + bounds.height <= viewportHeight) return
+        val target = scrollState.value + relativeTop - headroomPx
+        scrollState.animateScrollTo(
+            target.roundToInt().coerceIn(0, scrollState.maxValue)
+        )
+    }
+
+    LaunchedEffect(pendingSection, state.isLoadingSubCategories, state.subCategories) {
+        when (val section = pendingSection) {
+            null -> Unit
+            FormSection.SubCategory -> {
+                // The list arrives asynchronously; wait for it to settle, then skip
+                // straight to the note if this category has no subcategories at all.
+                if (!state.isLoadingSubCategories) {
+                    scrollToSection(
+                        if (state.subCategories.isEmpty()) FormSection.Note else FormSection.SubCategory
+                    )
+                    pendingSection = null
+                }
+            }
+            else -> {
+                scrollToSection(section)
+                pendingSection = null
+            }
+        }
+    }
+
     val today = LocalDate.now()
     val dateChips = listOf(
         "Today"     to today,
@@ -109,6 +200,7 @@ fun TransactionFormScreen(
                         viewModel.onDateChange(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
                     }
                     showDatePicker = false
+                    advanceTo(FormSection.Category)
                 }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
@@ -154,7 +246,6 @@ fun TransactionFormScreen(
             CalculatorView(
                 initial = state.amount,
                 onUse   = { result -> viewModel.onAmountChange(result); showCalc = false },
-                onBack  = { showCalc = false },
                 modifier = Modifier.weight(1f)
             )
         } else {
@@ -162,7 +253,11 @@ fun TransactionFormScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
+                    .onGloballyPositioned {
+                        viewportTop = it.positionInWindow().y
+                        viewportHeight = it.size.height
+                    }
+                    .verticalScroll(scrollState)
                     .padding(horizontal = 18.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
@@ -181,7 +276,12 @@ fun TransactionFormScreen(
                             listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
                                 val active = state.type == type
                                 TextButton(
-                                    onClick = { viewModel.onTypeChange(type) },
+                                    onClick = {
+                                        viewModel.onTypeChange(type)
+                                        // Type sits above the amount, so the natural next
+                                        // step is entering the amount, not the date.
+                                        focusAmount()
+                                    },
                                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(999.dp))
@@ -201,75 +301,94 @@ fun TransactionFormScreen(
 
                 Spacer(Modifier.height(10.dp))
 
-                // Hero amount display
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.Bottom
+                // Hero amount display — tapping it reopens the keypad
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .sectionAnchor(FormSection.Amount, anchors)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { focusAmount() }
+                        ),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            "৳",
+                            fontSize = 30.sp,
+                            fontFamily = FontFamily.Serif,
+                            color = amountColor.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
+                        )
+                        Text(
+                            if (state.amount.isEmpty()) "0" else state.amount,
+                            fontSize = 60.sp,
+                            fontFamily = FontFamily.Serif,
+                            fontWeight = FontWeight.Normal,
+                            color = if (state.amount.isEmpty()) InkFaint else amountColor,
+                            lineHeight = 60.sp
+                        )
+                    }
                     Text(
-                        "৳",
-                        fontSize = 30.sp,
-                        fontFamily = FontFamily.Serif,
-                        color = amountColor.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
-                    )
-                    Text(
-                        if (state.amount.isEmpty()) "0" else state.amount,
-                        fontSize = 60.sp,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Normal,
-                        color = if (state.amount.isEmpty()) InkFaint else amountColor,
-                        lineHeight = 60.sp
+                        if (showNumpad) "Tap keypad below — or use calculator"
+                        else "Tap the amount to edit",
+                        fontSize = 11.sp,
+                        color = InkFaint,
+                        letterSpacing = 0.3.sp
                     )
                 }
-                Text(
-                    "Tap keypad below — or use calculator",
-                    fontSize = 11.sp,
-                    color = InkFaint,
-                    letterSpacing = 0.3.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
 
                 Spacer(Modifier.height(20.dp))
 
                 // Date chips
-                FormLabel("Date")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    dateChips.forEachIndexed { index, (label, date) ->
-                        val active = state.dateChipIndex == index
-                        ChipButton(
-                            active = active,
-                            onClick = {
-                                if (index == 3) showDatePicker = true
-                                else viewModel.onDateChipChange(index)
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    label,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (active) WarmPaper else Ink
-                                )
-                                if (index < 3) {
+                Column(Modifier.sectionAnchor(FormSection.Date, anchors)) {
+                    FormLabel("Date")
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        dateChips.forEachIndexed { index, (label, date) ->
+                            val active = state.dateChipIndex == index
+                            ChipButton(
+                                active = active,
+                                onClick = {
+                                    showNumpad = false
+                                    // "Pick" advances only once the dialog is confirmed.
+                                    if (index == 3) showDatePicker = true
+                                    else {
+                                        viewModel.onDateChipChange(index)
+                                        pendingSection = FormSection.Category
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        date.format(DateTimeFormatter.ofPattern("MMM d")),
-                                        fontSize = 10.sp,
-                                        color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
+                                        label,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (active) WarmPaper else Ink
                                     )
-                                } else {
-                                    Text(
-                                        if (state.dateChipIndex == 3)
-                                            state.date.format(DateTimeFormatter.ofPattern("MMM d"))
-                                        else "···",
-                                        fontSize = 10.sp,
-                                        color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
-                                    )
+                                    if (index < 3) {
+                                        Text(
+                                            date.format(DateTimeFormatter.ofPattern("MMM d")),
+                                            fontSize = 10.sp,
+                                            color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
+                                        )
+                                    } else {
+                                        Text(
+                                            if (state.dateChipIndex == 3)
+                                                state.date.format(DateTimeFormatter.ofPattern("MMM d"))
+                                            else "···",
+                                            fontSize = 10.sp,
+                                            color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -280,13 +399,16 @@ fun TransactionFormScreen(
 
                 // Category chips
                 if (state.categories.isNotEmpty()) {
-                    FormLabel("Category")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        state.categories.forEach { cat ->
-                            val active = cat.id == state.categoryId
-                            val catColor = parseCatColor(cat.colorHex)
-                            CategoryChip(cat = cat, catColor = catColor, active = active) {
-                                viewModel.onCategoryChange(cat.id)
+                    Column(Modifier.sectionAnchor(FormSection.Category, anchors)) {
+                        FormLabel("Category")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            state.categories.forEach { cat ->
+                                val active = cat.id == state.categoryId
+                                val catColor = parseCatColor(cat.colorHex)
+                                CategoryChip(cat = cat, catColor = catColor, active = active) {
+                                    viewModel.onCategoryChange(cat.id)
+                                    advanceTo(FormSection.SubCategory)
+                                }
                             }
                         }
                     }
@@ -296,14 +418,20 @@ fun TransactionFormScreen(
 
                 // Subcategory chips
                 if (state.subCategories.isNotEmpty()) {
-                    FormLabel("Sub-category")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        // None option
-                        val noneActive = state.subCategoryId == null
-                        SubChip(label = "None", active = noneActive) { viewModel.onSubCategoryChange(null) }
-                        state.subCategories.forEach { sub ->
-                            SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
-                                viewModel.onSubCategoryChange(sub.id)
+                    Column(Modifier.sectionAnchor(FormSection.SubCategory, anchors)) {
+                        FormLabel("Sub-category")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            // None option
+                            val noneActive = state.subCategoryId == null
+                            SubChip(label = "None", active = noneActive) {
+                                viewModel.onSubCategoryChange(null)
+                                advanceTo(FormSection.Note)
+                            }
+                            state.subCategories.forEach { sub ->
+                                SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
+                                    viewModel.onSubCategoryChange(sub.id)
+                                    advanceTo(FormSection.Note)
+                                }
                             }
                         }
                     }
@@ -312,30 +440,44 @@ fun TransactionFormScreen(
                 Spacer(Modifier.height(18.dp))
 
                 // Note
-                FormLabel("Note — optional")
-                OutlinedTextField(
-                    value = state.note,
-                    onValueChange = viewModel::onNoteChange,
-                    placeholder = { Text("e.g. Dinner with friends", color = InkFaint, fontSize = 14.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    maxLines = 2,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor   = Ink,
-                        unfocusedBorderColor = Rule,
-                        focusedTextColor     = Ink,
-                        unfocusedTextColor   = Ink
+                Column(Modifier.sectionAnchor(FormSection.Note, anchors)) {
+                    FormLabel("Note — optional")
+                    OutlinedTextField(
+                        value = state.note,
+                        onValueChange = viewModel::onNoteChange,
+                        placeholder = { Text("e.g. Dinner with friends", color = InkFaint, fontSize = 14.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // The soft keyboard and the numpad must never fight for the
+                            // bottom of the screen.
+                            .onFocusChanged { if (it.isFocused) showNumpad = false },
+                        maxLines = 2,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor   = Ink,
+                            unfocusedBorderColor = Rule,
+                            focusedTextColor     = Ink,
+                            unfocusedTextColor   = Ink
+                        )
                     )
-                )
+                }
                 Spacer(Modifier.height(16.dp))
             }
 
             // ── Numpad ───────────────────────────────────────────────────
-            Numpad(
-                onDigit   = viewModel::onAmountDigit,
-                onBack    = viewModel::onAmountBackspace,
-                onCalc    = { showCalc = true }
-            )
+            // Shown only while the amount has focus. Kept un-animated on purpose: the
+            // scroll math below measures the viewport, and a mid-flight height would
+            // make it target the wrong offset.
+            if (showNumpad) {
+                Numpad(
+                    onDigit     = viewModel::onAmountDigit,
+                    onDecimal   = viewModel::onAmountDecimal,
+                    onBackspace = viewModel::onAmountBackspace,
+                    onClear     = viewModel::onAmountClear,
+                    onCalc      = { showCalc = true },
+                    onDone      = { advanceTo(FormSection.Date) }
+                )
+            }
         }
     }
 }
@@ -428,18 +570,33 @@ private fun SubChip(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
+/** One cell of the 4×4 keypad. [Blank] holds the gap open so the grid stays aligned. */
+private sealed interface NumKey {
+    data class Digit(val value: String) : NumKey
+    data object Decimal : NumKey
+    data object Backspace : NumKey
+    data object Clear : NumKey
+    data object Calc : NumKey
+    data object Done : NumKey
+    data object Blank : NumKey
+}
+
+private val NumpadKeys = listOf(
+    listOf(NumKey.Digit("1"), NumKey.Digit("2"), NumKey.Digit("3"), NumKey.Backspace),
+    listOf(NumKey.Digit("4"), NumKey.Digit("5"), NumKey.Digit("6"), NumKey.Clear),
+    listOf(NumKey.Digit("7"), NumKey.Digit("8"), NumKey.Digit("9"), NumKey.Calc),
+    listOf(NumKey.Blank,      NumKey.Digit("0"), NumKey.Decimal,    NumKey.Done)
+)
+
 @Composable
 private fun Numpad(
     onDigit: (String) -> Unit,
-    onBack: () -> Unit,
-    onCalc: () -> Unit
+    onDecimal: () -> Unit,
+    onBackspace: () -> Unit,
+    onClear: () -> Unit,
+    onCalc: () -> Unit,
+    onDone: () -> Unit
 ) {
-    val rows = listOf(
-        listOf("1", "2", "3"),
-        listOf("4", "5", "6"),
-        listOf("7", "8", "9"),
-        listOf("calc", "0", "back")
-    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -447,7 +604,7 @@ private fun Numpad(
             .padding(vertical = 6.dp, horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        rows.forEach { row ->
+        NumpadKeys.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -459,21 +616,63 @@ private fun Numpad(
                             .height(52.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        TextButton(
-                            onClick = {
+                        when (key) {
+                            NumKey.Blank -> Unit
+
+                            NumKey.Done -> TextButton(
+                                onClick = onDone,
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.textButtonColors(
+                                    containerColor = Ink,
+                                    contentColor = WarmPaper
+                                )
+                            ) {
+                                Text(
+                                    "Done",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    letterSpacing = 0.3.sp
+                                )
+                            }
+
+                            else -> TextButton(
+                                onClick = {
+                                    when (key) {
+                                        is NumKey.Digit -> onDigit(key.value)
+                                        NumKey.Decimal   -> onDecimal()
+                                        NumKey.Backspace -> onBackspace()
+                                        NumKey.Clear     -> onClear()
+                                        NumKey.Calc      -> onCalc()
+                                        else             -> Unit
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
                                 when (key) {
-                                    "calc" -> onCalc()
-                                    "back" -> onBack()
-                                    else   -> onDigit(key)
+                                    is NumKey.Digit -> Text(
+                                        key.value,
+                                        fontSize = 26.sp,
+                                        fontFamily = FontFamily.Serif,
+                                        color = Ink
+                                    )
+                                    NumKey.Decimal -> Text(
+                                        ".",
+                                        fontSize = 26.sp,
+                                        fontFamily = FontFamily.Serif,
+                                        color = Ink
+                                    )
+                                    NumKey.Backspace -> Text("⌫", fontSize = 22.sp, color = InkMedium)
+                                    NumKey.Clear -> Text(
+                                        "C",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = InkMedium
+                                    )
+                                    NumKey.Calc -> Text("⊞", fontSize = 20.sp, color = InkMedium)
+                                    else -> Unit
                                 }
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            when (key) {
-                                "back" -> Text("⌫", fontSize = 22.sp, color = InkMedium)
-                                "calc" -> Text("⊞", fontSize = 20.sp, color = InkMedium)
-                                else   -> Text(key, fontSize = 26.sp, fontFamily = FontFamily.Serif, color = Ink)
                             }
                         }
                     }
@@ -483,26 +682,37 @@ private fun Numpad(
     }
 }
 
+/** Grouped, for display: 1234.5 → "1,234.50". */
+private fun formatCalcDisplay(value: Double): String =
+    if (value == kotlin.math.floor(value)) "%,.0f".format(value) else "%,.2f".format(value)
+
+/** Ungrouped, for handing back to the amount field, which parses with toDouble(). */
+private fun formatCalcAmount(value: Double): String =
+    if (value == kotlin.math.floor(value)) value.toLong().toString() else "%.2f".format(value)
+
+private const val CalcKeyDone = "Done"
+
+private val CalculatorKeys = listOf(
+    listOf("C", "(", ")", "/"),
+    listOf("7", "8", "9", "*"),
+    listOf("4", "5", "6", "-"),
+    listOf("1", "2", "3", "+"),
+    listOf("0", ".", "⌫", CalcKeyDone)
+)
+
 @Composable
 private fun CalculatorView(
     initial: String,
     onUse: (String) -> Unit,
-    onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expr by remember { mutableStateOf(initial) }
     val result = remember(expr) { safeEval(expr) }
-
-    val calcRows = listOf(
-        listOf("C", "(", ")", "/"),
-        listOf("7", "8", "9", "*"),
-        listOf("4", "5", "6", "-"),
-        listOf("1", "2", "3", "+"),
-        listOf("0", ".", "⌫", "=")
-    )
+    // Done both evaluates and applies, so it only lights up on a usable result.
+    val canApply = result != null && result > 0
 
     Column(modifier = modifier.fillMaxWidth().background(WarmPaper)) {
-        // Expression display
+        // ── Expression display, pinned to the top ────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -518,31 +728,16 @@ private fun CalculatorView(
                     maxLines = 1
                 )
                 if (result != null && expr.isNotEmpty()) {
-                    Text(
-                        "= ${if (result == kotlin.math.floor(result)) "%,.0f".format(result) else "%,.2f".format(result)}",
-                        fontSize = 14.sp,
-                        color = InkFaint
-                    )
+                    Text("= ${formatCalcDisplay(result)}", fontSize = 14.sp, color = InkFaint)
                 }
             }
         }
-        // Use result button
-        if (result != null && result > 0) {
-            TextButton(
-                onClick = {
-                    val formatted = if (result == kotlin.math.floor(result))
-                        result.toLong().toString()
-                    else "%.2f".format(result)
-                    onUse(formatted)
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.textButtonColors(containerColor = Ink, contentColor = WarmPaper)
-            ) {
-                Text("Use ৳ ${if (result == kotlin.math.floor(result)) "%,.0f".format(result) else "%,.2f".format(result)}", fontWeight = FontWeight.SemiBold)
-            }
-        }
-        // Calc keypad
+
+        // Pushes the keypad to the bottom of the screen instead of letting it
+        // float directly under the display.
+        Spacer(Modifier.weight(1f))
+
+        // ── Keypad, pinned to the bottom ─────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -550,33 +745,51 @@ private fun CalculatorView(
                 .padding(vertical = 4.dp, horizontal = 4.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            calcRows.forEach { row ->
+            CalculatorKeys.forEach { row ->
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     row.forEach { key ->
-                        val isOp = key in listOf("+", "-", "*", "/", "(", ")", "=", "C")
                         Box(modifier = Modifier.weight(1f).height(52.dp), contentAlignment = Alignment.Center) {
-                            TextButton(
-                                onClick = {
-                                    when (key) {
-                                        "C"  -> expr = ""
-                                        "⌫"  -> expr = expr.dropLast(1)
-                                        "="  -> { result?.let { r ->
-                                            expr = if (r == kotlin.math.floor(r)) r.toLong().toString()
-                                                   else "%.2f".format(r)
-                                        }}
-                                        else -> expr += key
-                                    }
-                                },
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    key,
-                                    fontSize = if (key.length == 1 && !key[0].isDigit() && key != ".") 20.sp else 24.sp,
-                                    fontFamily = if (key[0].isDigit() || key == ".") FontFamily.Serif else FontFamily.Default,
-                                    color = if (isOp) InkMedium else Ink,
-                                    fontWeight = if (isOp) FontWeight.SemiBold else FontWeight.Normal
-                                )
+                            if (key == CalcKeyDone) {
+                                TextButton(
+                                    onClick = { result?.let { onUse(formatCalcAmount(it)) } },
+                                    enabled = canApply,
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.textButtonColors(
+                                        containerColor = Ink,
+                                        contentColor = WarmPaper,
+                                        disabledContainerColor = Rule,
+                                        disabledContentColor = InkFaint
+                                    )
+                                ) {
+                                    Text(
+                                        CalcKeyDone,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = 0.3.sp
+                                    )
+                                }
+                            } else {
+                                val isOp = key in listOf("+", "-", "*", "/", "(", ")", "C")
+                                TextButton(
+                                    onClick = {
+                                        when (key) {
+                                            "C" -> expr = ""
+                                            "⌫" -> expr = expr.dropLast(1)
+                                            else -> expr += key
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize(),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        key,
+                                        fontSize = if (key.length == 1 && !key[0].isDigit() && key != ".") 20.sp else 24.sp,
+                                        fontFamily = if (key[0].isDigit() || key == ".") FontFamily.Serif else FontFamily.Default,
+                                        color = if (isOp) InkMedium else Ink,
+                                        fontWeight = if (isOp) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
                             }
                         }
                     }
