@@ -19,6 +19,12 @@ import javax.inject.Inject
 class GoogleAuthClientImpl @Inject constructor() : GoogleAuthClient {
 
     override suspend fun signIn(context: Context): GoogleAuthResult {
+        // An empty server client ID means local.properties is missing GOOGLE_WEB_CLIENT_ID.
+        // Credential Manager would fail with an opaque provider error; say so plainly instead.
+        if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank()) {
+            return GoogleAuthResult.Error("Google sign-in isn't configured for this build")
+        }
+
         val googleIdOption = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(BuildConfig.GOOGLE_WEB_CLIENT_ID)

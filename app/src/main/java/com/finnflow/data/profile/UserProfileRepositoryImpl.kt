@@ -16,6 +16,7 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     private object Keys {
         val DISPLAY_NAME = stringPreferencesKey("profile_display_name")
+        val NAME_IS_CUSTOM = booleanPreferencesKey("profile_name_is_custom")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
         val CURRENCY_CODE = stringPreferencesKey("profile_currency_code")
         val THEME_MODE = stringPreferencesKey("profile_theme_mode")
@@ -48,7 +49,11 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     override suspend fun saveProfile(name: String) {
         dataStore.edit { prefs ->
-            prefs[Keys.DISPLAY_NAME] = name.trim()
+            val trimmed = name.trim()
+            prefs[Keys.DISPLAY_NAME] = trimmed
+            // Only a name the user actually typed is worth protecting from a later
+            // Google sign-in; clearing the field hands control back to Google.
+            prefs[Keys.NAME_IS_CUSTOM] = trimmed.isNotBlank()
         }
     }
 
@@ -99,10 +104,16 @@ class UserProfileRepositoryImpl @Inject constructor(
         googleAccountId: String
     ) {
         dataStore.edit { prefs ->
-            // Don't clobber a name the user already customized locally.
-            if (prefs[Keys.DISPLAY_NAME].isNullOrBlank() && displayName.isNotBlank()) {
+            // Don't clobber a name the user typed themselves, but do replace one that a
+            // previous Google sign-in wrote — otherwise switching accounts leaves the old
+            // account's name sitting next to the new account's email. The flag is absent on
+            // installs that predate it, where any existing name can only have been typed.
+            val nameIsCustom = prefs[Keys.NAME_IS_CUSTOM]
+                ?: !prefs[Keys.DISPLAY_NAME].isNullOrBlank()
+            if (!nameIsCustom && displayName.isNotBlank()) {
                 prefs[Keys.DISPLAY_NAME] = displayName
             }
+            prefs[Keys.NAME_IS_CUSTOM] = nameIsCustom
             prefs[Keys.EMAIL] = email
             if (avatarUrl != null) prefs[Keys.AVATAR_URL] = avatarUrl
             prefs[Keys.GOOGLE_ACCOUNT_ID] = googleAccountId

@@ -15,6 +15,17 @@ val localProperties = Properties().apply {
     if (file.exists()) load(FileInputStream(file))
 }
 
+// local.properties is gitignored, so a fresh clone or CI build won't have this. The build
+// still succeeds — unit tests and every non-auth feature must stay buildable without it —
+// but Google Sign-In returns a "not configured" error at runtime. See README.
+val googleWebClientId: String = localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")
+if (googleWebClientId.isBlank()) {
+    logger.warn(
+        "GOOGLE_WEB_CLIENT_ID is not set in local.properties — " +
+            "Google Sign-In will be disabled in this build."
+    )
+}
+
 android {
     namespace = "com.finnflow"
     compileSdk = 35
@@ -28,11 +39,7 @@ android {
 
         testInstrumentationRunner = "com.finnflow.HiltTestRunner"
 
-        buildConfigField(
-            "String",
-            "GOOGLE_WEB_CLIENT_ID",
-            "\"${localProperties.getProperty("GOOGLE_WEB_CLIENT_ID", "")}\""
-        )
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     packaging {

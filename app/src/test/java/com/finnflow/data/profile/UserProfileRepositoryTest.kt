@@ -44,6 +44,7 @@ class UserProfileRepositoryTest {
     private val KEY_AVATAR = stringPreferencesKey("profile_avatar_url")
     private val KEY_GOOGLE_ID = stringPreferencesKey("profile_google_account_id")
     private val KEY_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
+    private val KEY_NAME_IS_CUSTOM = booleanPreferencesKey("profile_name_is_custom")
 
     @Before
     fun setup() {
@@ -243,6 +244,28 @@ class UserProfileRepositoryTest {
         assertEquals("Alice", result[KEY_NAME])
     }
 
+    @Test
+    fun saveProfile_marksNameAsCustom() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.saveProfile("Alice")
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals(true, result[KEY_NAME_IS_CUSTOM])
+    }
+
+    @Test
+    fun saveProfile_withBlankName_doesNotMarkNameAsCustom() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.saveProfile("   ")
+
+        val result = transformSlot.captured(preferencesOf(KEY_NAME_IS_CUSTOM to true))
+        assertEquals(false, result[KEY_NAME_IS_CUSTOM])
+    }
+
     // ── completeOnboarding ────────────────────────────────────────────────
 
     @Test
@@ -413,15 +436,58 @@ class UserProfileRepositoryTest {
     }
 
     @Test
-    fun signInWithGoogle_doesNotOverwriteExistingDisplayName() = runTest {
+    fun signInWithGoogle_doesNotOverwriteUserTypedDisplayName() = runTest {
         val transformSlot = slot<suspend (Preferences) -> Preferences>()
         coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
 
         repo.signInWithGoogle("Jane", "jane@gmail.com", null, "sub123")
 
+        val existing = preferencesOf(KEY_NAME to "Custom Name", KEY_NAME_IS_CUSTOM to true)
+        val result = transformSlot.captured(existing)
+        assertEquals("Custom Name", result[KEY_NAME])
+        assertEquals(true, result[KEY_NAME_IS_CUSTOM])
+    }
+
+    @Test
+    fun signInWithGoogle_treatsPreFlagNameAsUserTyped() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Jane", "jane@gmail.com", null, "sub123")
+
+        // Installs that predate NAME_IS_CUSTOM have no flag; a name there can only have
+        // been typed by the user, so it must survive.
         val existing = preferencesOf(KEY_NAME to "Custom Name")
         val result = transformSlot.captured(existing)
         assertEquals("Custom Name", result[KEY_NAME])
+        assertEquals(true, result[KEY_NAME_IS_CUSTOM])
+    }
+
+    @Test
+    fun signInWithGoogle_replacesNameLeftByPreviousGoogleAccount() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Sam Roy", "sam@gmail.com", null, "sub456")
+
+        // Account A signed in earlier and left its name behind with the flag false.
+        val existing = preferencesOf(KEY_NAME to "Jane Doe", KEY_NAME_IS_CUSTOM to false)
+        val result = transformSlot.captured(existing)
+        assertEquals("Sam Roy", result[KEY_NAME])
+        assertEquals("sam@gmail.com", result[KEY_EMAIL])
+        assertEquals(false, result[KEY_NAME_IS_CUSTOM])
+    }
+
+    @Test
+    fun signInWithGoogle_withBlankGoogleName_keepsExistingName() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("", "sam@gmail.com", null, "sub456")
+
+        val existing = preferencesOf(KEY_NAME to "Jane Doe", KEY_NAME_IS_CUSTOM to false)
+        val result = transformSlot.captured(existing)
+        assertEquals("Jane Doe", result[KEY_NAME])
     }
 
     @Test
@@ -433,6 +499,7 @@ class UserProfileRepositoryTest {
 
         val result = transformSlot.captured(emptyPreferences())
         assertEquals("Jane", result[KEY_NAME])
+        assertEquals(false, result[KEY_NAME_IS_CUSTOM])
     }
 
     // ── signOutGoogle ─────────────────────────────────────────────────────

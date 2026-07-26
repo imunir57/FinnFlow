@@ -31,6 +31,18 @@ FinnFlow is a personal finance tracker for Android. It lets you log income and e
 ./gradlew assembleRelease   # Release APK (minified via ProGuard)
 ```
 
+### Google Sign-In setup
+
+Google Sign-In needs an OAuth **web** client ID. Add it to `local.properties` (gitignored, so
+each machine and CI needs its own copy):
+
+```
+GOOGLE_WEB_CLIENT_ID=<your-web-client-id>.apps.googleusercontent.com
+```
+
+The build succeeds without it — everything except sign-in works normally — but Gradle logs a
+warning and the sign-in button reports "Google sign-in isn't configured for this build".
+
 ## Test
 
 ```bash

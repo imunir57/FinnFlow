@@ -67,6 +67,19 @@ fun ProfileScreen(
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
 
+    // Sign-in state comes from isSignedIn, never from email — an ID token without an email
+    // claim would otherwise render "Not signed in" next to a signed-in checkmark.
+    val accountLabel = when {
+        !profile.isSignedIn -> "Not signed in"
+        profile.email.isNotBlank() -> profile.email
+        else -> "Signed in with Google"
+    }
+    val cloudSyncSubtitle = when {
+        !profile.isSignedIn -> "Sign in with Google to enable"
+        profile.email.isNotBlank() -> "Signed in as ${profile.email}"
+        else -> "Signed in with Google"
+    }
+
     LaunchedEffect(Unit) {
         viewModel.messages.collectLatest { message ->
             snackbarHostState.showSnackbar(message)
@@ -228,7 +241,7 @@ fun ProfileScreen(
                     }
 
                     Spacer(Modifier.height(4.dp))
-                    Text(profile.email.ifBlank { "Not signed in" }, fontSize = 12.5.sp, color = InkMedium)
+                    Text(accountLabel, fontSize = 12.5.sp, color = InkMedium)
                 }
             }
 
@@ -277,7 +290,7 @@ fun ProfileScreen(
                     icon = Icons.Default.Email,
                     iconColor = IconEmail,
                     label = "Email",
-                    subtitle = profile.email.ifBlank { "Not signed in" }
+                    subtitle = accountLabel
                 )
             }
             item {
@@ -285,11 +298,7 @@ fun ProfileScreen(
                     icon = Icons.Default.Cloud,
                     iconColor = IconCloud,
                     label = "Cloud sync",
-                    subtitle = if (profile.isSignedIn) {
-                        "Signed in as ${profile.email}"
-                    } else {
-                        "Sign in with Google to enable"
-                    },
+                    subtitle = cloudSyncSubtitle,
                     right = if (profile.isSignedIn) {
                         {
                             Icon(
