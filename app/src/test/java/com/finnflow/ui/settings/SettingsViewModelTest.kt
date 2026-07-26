@@ -1,6 +1,7 @@
 package com.finnflow.ui.settings
 
 import app.cash.turbine.test
+import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.biometric.BiometricAuthenticator
 import com.finnflow.data.notification.ReminderScheduler
 import com.finnflow.data.profile.UserProfile
@@ -37,6 +38,7 @@ class SettingsViewModelTest {
     private lateinit var reminderScheduler: ReminderScheduler
     private lateinit var biometricAuthenticator: BiometricAuthenticator
     private lateinit var backupRepo: BackupRepository
+    private lateinit var googleAuthClient: GoogleAuthClient
 
     @Before
     fun setup() {
@@ -46,6 +48,7 @@ class SettingsViewModelTest {
         reminderScheduler = mockk(relaxed = true)
         biometricAuthenticator = mockk(relaxed = true)
         backupRepo = mockk(relaxed = true)
+        googleAuthClient = mockk(relaxed = true)
         every { repo.profile } returns flowOf(UserProfile())
     }
 
@@ -53,7 +56,7 @@ class SettingsViewModelTest {
     fun teardown() = Dispatchers.resetMain()
 
     private fun makeVm() = SettingsViewModel(
-        repo, transactionRepository, reminderScheduler, biometricAuthenticator, backupRepo
+        repo, transactionRepository, reminderScheduler, biometricAuthenticator, backupRepo, googleAuthClient
     )
 
     @Test
@@ -308,5 +311,22 @@ class SettingsViewModelTest {
             assertEquals("Restore failed: bad file", awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // ── onSignOut ─────────────────────────────────────────────────────────
+
+    @Test
+    fun onSignOut_clearsCredentialStateSignsOutProfileAndNotifies() = runTest {
+        val vm = makeVm()
+        val context = mockk<android.content.Context>(relaxed = true)
+
+        vm.messages.test {
+            vm.onSignOut(context)
+            assertEquals("Signed out", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify { googleAuthClient.signOut(context) }
+        coVerify { repo.signOutGoogle() }
     }
 }

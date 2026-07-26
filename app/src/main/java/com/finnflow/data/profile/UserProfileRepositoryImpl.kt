@@ -22,6 +22,10 @@ class UserProfileRepositoryImpl @Inject constructor(
         val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
         val LAST_BACKUP_TIMESTAMP = longPreferencesKey("last_backup_timestamp")
+        val EMAIL = stringPreferencesKey("profile_email")
+        val AVATAR_URL = stringPreferencesKey("profile_avatar_url")
+        val GOOGLE_ACCOUNT_ID = stringPreferencesKey("profile_google_account_id")
+        val IS_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -34,7 +38,11 @@ class UserProfileRepositoryImpl @Inject constructor(
             themeMode = prefs[Keys.THEME_MODE] ?: "system",
             notificationsEnabled = prefs[Keys.NOTIFICATIONS_ENABLED] ?: true,
             appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false,
-            lastBackupTimestamp = prefs[Keys.LAST_BACKUP_TIMESTAMP]
+            lastBackupTimestamp = prefs[Keys.LAST_BACKUP_TIMESTAMP],
+            email = prefs[Keys.EMAIL] ?: "",
+            avatarUrl = prefs[Keys.AVATAR_URL],
+            googleAccountId = prefs[Keys.GOOGLE_ACCOUNT_ID],
+            isSignedIn = prefs[Keys.IS_SIGNED_IN] ?: false
         )
     }
 
@@ -81,6 +89,33 @@ class UserProfileRepositoryImpl @Inject constructor(
     override suspend fun setLastBackupTimestamp(timestamp: Long) {
         dataStore.edit { prefs ->
             prefs[Keys.LAST_BACKUP_TIMESTAMP] = timestamp
+        }
+    }
+
+    override suspend fun signInWithGoogle(
+        displayName: String,
+        email: String,
+        avatarUrl: String?,
+        googleAccountId: String
+    ) {
+        dataStore.edit { prefs ->
+            // Don't clobber a name the user already customized locally.
+            if (prefs[Keys.DISPLAY_NAME].isNullOrBlank() && displayName.isNotBlank()) {
+                prefs[Keys.DISPLAY_NAME] = displayName
+            }
+            prefs[Keys.EMAIL] = email
+            if (avatarUrl != null) prefs[Keys.AVATAR_URL] = avatarUrl
+            prefs[Keys.GOOGLE_ACCOUNT_ID] = googleAccountId
+            prefs[Keys.IS_SIGNED_IN] = true
+        }
+    }
+
+    override suspend fun signOutGoogle() {
+        dataStore.edit { prefs ->
+            prefs.remove(Keys.EMAIL)
+            prefs.remove(Keys.AVATAR_URL)
+            prefs.remove(Keys.GOOGLE_ACCOUNT_ID)
+            prefs[Keys.IS_SIGNED_IN] = false
         }
     }
 }

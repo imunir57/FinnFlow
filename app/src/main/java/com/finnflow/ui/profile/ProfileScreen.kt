@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -41,8 +42,6 @@ import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
 
-private const val PLACEHOLDER_EMAIL = "user@example.com"
-
 private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
     else "%,.2f".format(amount)
@@ -61,6 +60,7 @@ fun ProfileScreen(
     val uiState by viewModel.uiState.collectAsState()
     val profile = uiState.profile
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
 
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
@@ -215,7 +215,7 @@ fun ProfileScreen(
                     }
 
                     Spacer(Modifier.height(4.dp))
-                    Text(PLACEHOLDER_EMAIL, fontSize = 12.5.sp, color = InkMedium)
+                    Text(profile.email.ifBlank { "Not signed in" }, fontSize = 12.5.sp, color = InkMedium)
                 }
             }
 
@@ -264,7 +264,7 @@ fun ProfileScreen(
                     icon = Icons.Default.Email,
                     iconColor = IconEmail,
                     label = "Email",
-                    subtitle = PLACEHOLDER_EMAIL
+                    subtitle = profile.email.ifBlank { "Not signed in" }
                 )
             }
             item {
@@ -272,20 +272,38 @@ fun ProfileScreen(
                     icon = Icons.Default.Cloud,
                     iconColor = IconCloud,
                     label = "Cloud sync",
-                    subtitle = "Sign in with Google to enable",
-                    right = {
-                        Box(
-                            modifier = Modifier
-                                .background(Rule, RoundedCornerShape(999.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                "SOON",
-                                fontSize = 10.5.sp,
-                                letterSpacing = 0.5.sp,
-                                color = InkMedium
+                    subtitle = if (profile.isSignedIn) {
+                        "Signed in as ${profile.email}"
+                    } else {
+                        "Sign in with Google to enable"
+                    },
+                    right = if (profile.isSignedIn) {
+                        {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = IconCloud,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
+                    } else {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .background(Rule, RoundedCornerShape(999.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    "SIGN IN",
+                                    fontSize = 10.5.sp,
+                                    letterSpacing = 0.5.sp,
+                                    color = InkMedium
+                                )
+                            }
+                        }
+                    },
+                    onClick = if (profile.isSignedIn) null else {
+                        { viewModel.onSignInWithGoogle(context) }
                     }
                 )
             }
@@ -397,12 +415,17 @@ private fun ProfileRow(
     iconColor: Color,
     label: String,
     subtitle: String? = null,
-    right: (@Composable () -> Unit)? = null
+    right: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null
 ) {
+    val rowModifier = if (onClick != null) {
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 22.dp, vertical = 12.dp)
+    } else {
+        Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp)
+    }
+
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 22.dp, vertical = 12.dp),
+        modifier = rowModifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {

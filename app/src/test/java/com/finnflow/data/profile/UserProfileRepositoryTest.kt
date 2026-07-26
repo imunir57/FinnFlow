@@ -40,6 +40,10 @@ class UserProfileRepositoryTest {
     private val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
     private val KEY_APP_LOCK = booleanPreferencesKey("app_lock_enabled")
     private val KEY_LAST_BACKUP = longPreferencesKey("last_backup_timestamp")
+    private val KEY_EMAIL = stringPreferencesKey("profile_email")
+    private val KEY_AVATAR = stringPreferencesKey("profile_avatar_url")
+    private val KEY_GOOGLE_ID = stringPreferencesKey("profile_google_account_id")
+    private val KEY_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
 
     @Before
     fun setup() {
@@ -180,6 +184,39 @@ class UserProfileRepositoryTest {
 
         repo.profile.test {
             assertEquals(12345L, awaitItem().lastBackupTimestamp)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withEmptyPrefs_isSignedInFalseAndEmailBlank() = runTest {
+        every { dataStore.data } returns flowOf(emptyPreferences())
+
+        repo.profile.test {
+            val p = awaitItem()
+            assertEquals("", p.email)
+            assertNull(p.avatarUrl)
+            assertNull(p.googleAccountId)
+            assertFalse(p.isSignedIn)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun profile_withSignedInPrefs_mapsAccountFields() = runTest {
+        every { dataStore.data } returns flowOf(
+            preferencesOf(
+                KEY_EMAIL to "jane@gmail.com",
+                KEY_GOOGLE_ID to "sub123",
+                KEY_SIGNED_IN to true
+            )
+        )
+
+        repo.profile.test {
+            val p = awaitItem()
+            assertEquals("jane@gmail.com", p.email)
+            assertEquals("sub123", p.googleAccountId)
+            assertTrue(p.isSignedIn)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -347,5 +384,85 @@ class UserProfileRepositoryTest {
 
         val result = transformSlot.captured(emptyPreferences())
         assertEquals(999L, result[KEY_LAST_BACKUP])
+    }
+
+    // ── signInWithGoogle ──────────────────────────────────────────────────
+
+    @Test
+    fun signInWithGoogle_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Jane", "jane@gmail.com", "https://example.com/pic.jpg", "sub123")
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun signInWithGoogle_setsAllFieldsAndSignedInTrue() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Jane", "jane@gmail.com", "https://example.com/pic.jpg", "sub123")
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals("Jane", result[KEY_NAME])
+        assertEquals("jane@gmail.com", result[KEY_EMAIL])
+        assertEquals("https://example.com/pic.jpg", result[KEY_AVATAR])
+        assertEquals("sub123", result[KEY_GOOGLE_ID])
+        assertTrue(result[KEY_SIGNED_IN] == true)
+    }
+
+    @Test
+    fun signInWithGoogle_doesNotOverwriteExistingDisplayName() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Jane", "jane@gmail.com", null, "sub123")
+
+        val existing = preferencesOf(KEY_NAME to "Custom Name")
+        val result = transformSlot.captured(existing)
+        assertEquals("Custom Name", result[KEY_NAME])
+    }
+
+    @Test
+    fun signInWithGoogle_withBlankExistingName_fillsItIn() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signInWithGoogle("Jane", "jane@gmail.com", null, "sub123")
+
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals("Jane", result[KEY_NAME])
+    }
+
+    // ── signOutGoogle ─────────────────────────────────────────────────────
+
+    @Test
+    fun signOutGoogle_callsUpdateData() = runTest {
+        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
+
+        repo.signOutGoogle()
+
+        coVerify { dataStore.updateData(any()) }
+    }
+
+    @Test
+    fun signOutGoogle_clearsAccountFieldsButKeepsName() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        repo.signOutGoogle()
+
+        val existing = preferencesOf(
+            KEY_NAME to "Jane",
+            KEY_EMAIL to "jane@gmail.com",
+            KEY_GOOGLE_ID to "sub123",
+            KEY_SIGNED_IN to true
+        )
+        val result = transformSlot.captured(existing)
+        assertEquals("Jane", result[KEY_NAME])
+        assertNull(result[KEY_EMAIL])
+        assertNull(result[KEY_GOOGLE_ID])
+        assertEquals(false, result[KEY_SIGNED_IN])
     }
 }

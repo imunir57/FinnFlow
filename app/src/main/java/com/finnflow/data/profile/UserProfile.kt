@@ -10,7 +10,11 @@ data class UserProfile(
     val themeMode: String = "system",
     val notificationsEnabled: Boolean = true,
     val appLockEnabled: Boolean = false,
-    val lastBackupTimestamp: Long? = null
+    val lastBackupTimestamp: Long? = null,
+    val email: String = "",
+    val avatarUrl: String? = null,
+    val googleAccountId: String? = null,
+    val isSignedIn: Boolean = false
 ) {
     val currencySymbol: String
         get() = Currency.fromCode(currencyCode).symbol
