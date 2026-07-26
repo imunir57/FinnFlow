@@ -10,9 +10,11 @@ import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -43,20 +45,24 @@ class ProfileViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileUiState())
 
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
+
     fun saveName(name: String) {
         viewModelScope.launch { profileRepository.saveProfile(name) }
     }
 
     fun onSignInWithGoogle(context: Context) {
         viewModelScope.launch {
-            val result = googleAuthClient.signIn(context)
-            if (result is GoogleAuthResult.Success) {
-                profileRepository.signInWithGoogle(
+            when (val result = googleAuthClient.signIn(context)) {
+                is GoogleAuthResult.Success -> profileRepository.signInWithGoogle(
                     displayName = result.identity.displayName,
                     email = result.identity.email,
                     avatarUrl = result.identity.avatarUrl,
                     googleAccountId = result.identity.googleAccountId
                 )
+                is GoogleAuthResult.Cancelled -> Unit
+                is GoogleAuthResult.Error -> _messages.send(result.message)
             }
         }
     }

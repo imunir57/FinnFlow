@@ -159,7 +159,7 @@ fun OnboardingScreen(
             Spacer(Modifier.weight(1f))
 
             OutlinedButton(
-                onClick = { viewModel.onSignInWithGoogle(context) },
+                onClick = { viewModel.onSignInWithGoogle(context, name) },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {

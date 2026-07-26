@@ -39,10 +39,13 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun onSignInWithGoogle(context: Context) {
+    fun onSignInWithGoogle(context: Context, name: String) {
         viewModelScope.launch {
             when (val result = googleAuthClient.signIn(context)) {
                 is GoogleAuthResult.Success -> {
+                    // Save the typed name first — signInWithGoogle only fills in a blank
+                    // display name, so this keeps what the user wrote over Google's version.
+                    if (name.isNotBlank()) profileRepository.saveProfile(name)
                     profileRepository.signInWithGoogle(
                         displayName = result.identity.displayName,
                         email = result.identity.email,

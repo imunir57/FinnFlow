@@ -7,6 +7,7 @@ import com.finnflow.data.auth.GoogleIdentity
 import com.finnflow.data.profile.UserProfileRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -111,7 +112,7 @@ class OnboardingViewModelTest {
         coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Success(identity)
 
         vm.navigateHome.test {
-            vm.onSignInWithGoogle(mockk(relaxed = true))
+            vm.onSignInWithGoogle(mockk(relaxed = true), "")
             awaitItem()
             cancelAndIgnoreRemainingEvents()
         }
@@ -121,11 +122,45 @@ class OnboardingViewModelTest {
     }
 
     @Test
+    fun onSignInWithGoogle_withTypedName_savesItBeforeGoogleIdentity() = runTest {
+        val identity = GoogleIdentity("sub1", "Jane", "jane@gmail.com", null)
+        coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Success(identity)
+
+        vm.navigateHome.test {
+            vm.onSignInWithGoogle(mockk(relaxed = true), "Munir")
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        // Order matters: signInWithGoogle only fills a blank display name, so saveProfile
+        // has to land first for the typed name to survive.
+        coVerifyOrder {
+            repo.saveProfile("Munir")
+            repo.signInWithGoogle("Jane", "jane@gmail.com", null, "sub1")
+        }
+    }
+
+    @Test
+    fun onSignInWithGoogle_withBlankName_doesNotSaveProfile() = runTest {
+        val identity = GoogleIdentity("sub1", "Jane", "jane@gmail.com", null)
+        coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Success(identity)
+
+        vm.navigateHome.test {
+            vm.onSignInWithGoogle(mockk(relaxed = true), "   ")
+            awaitItem()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { repo.saveProfile(any()) }
+    }
+
+    @Test
     fun onSignInWithGoogle_cancelled_doesNotSaveOrNavigate() = runTest {
         coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Cancelled
 
-        vm.onSignInWithGoogle(mockk(relaxed = true))
+        vm.onSignInWithGoogle(mockk(relaxed = true), "Munir")
 
+        coVerify(exactly = 0) { repo.saveProfile(any()) }
         coVerify(exactly = 0) { repo.signInWithGoogle(any(), any(), any(), any()) }
         coVerify(exactly = 0) { repo.completeOnboarding() }
     }
@@ -135,11 +170,12 @@ class OnboardingViewModelTest {
         coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Error("network error")
 
         vm.messages.test {
-            vm.onSignInWithGoogle(mockk(relaxed = true))
+            vm.onSignInWithGoogle(mockk(relaxed = true), "Munir")
             assertEquals("network error", awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
 
+        coVerify(exactly = 0) { repo.saveProfile(any()) }
         coVerify(exactly = 0) { repo.signInWithGoogle(any(), any(), any(), any()) }
     }
 }

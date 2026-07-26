@@ -41,6 +41,7 @@ import com.finnflow.ui.theme.InkMedium
 import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
+import kotlinx.coroutines.flow.collectLatest
 
 private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
@@ -61,9 +62,16 @@ fun ProfileScreen(
     val profile = uiState.profile
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        viewModel.messages.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
 
     fun enterEditMode() {
         draft = profile.displayName
@@ -76,9 +84,14 @@ fun ProfileScreen(
         editing = false
     }
 
+    Scaffold(
+        containerColor = WarmPaper,
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(paddingValues)
             .background(WarmPaper)
     ) {
         Row(
@@ -357,6 +370,7 @@ fun ProfileScreen(
 
             item { Spacer(Modifier.height(80.dp)) }
         }
+    }
     }
 }
 

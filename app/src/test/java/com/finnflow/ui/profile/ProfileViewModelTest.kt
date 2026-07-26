@@ -138,4 +138,30 @@ class ProfileViewModelTest {
 
         coVerify(exactly = 0) { profileRepo.signInWithGoogle(any(), any(), any(), any()) }
     }
+
+    @Test
+    fun onSignInWithGoogle_error_emitsMessageAndDoesNotSave() = runTest {
+        coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Error("network error")
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.onSignInWithGoogle(mockk(relaxed = true))
+            assertEquals("network error", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { profileRepo.signInWithGoogle(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun onSignInWithGoogle_cancelled_emitsNoMessage() = runTest {
+        coEvery { googleAuthClient.signIn(any()) } returns GoogleAuthResult.Cancelled
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.onSignInWithGoogle(mockk(relaxed = true))
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }
