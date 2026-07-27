@@ -78,7 +78,7 @@ class SettingsViewModel @Inject constructor(
 
         if (!biometricAuthenticator.canAuthenticate()) {
             _appLockMessage.value =
-                "Set up fingerprint or face unlock in your device settings to use App Lock"
+                "Set up a screen lock or biometrics in your device settings to use App Lock"
             return
         }
 

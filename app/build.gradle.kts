@@ -85,12 +85,24 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    // Room writes a JSON snapshot of each schema version here (committed to git) —
+    // the reference for writing Migrations. Exposed to androidTest as assets so
+    // MigrationTestHelper can open databases at historical schema versions.
+    sourceSets {
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

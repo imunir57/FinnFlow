@@ -1,3 +1,7 @@
--keep class com.moneymanager.data.db.entity.** { *; }
--keep class com.moneymanager.data.model.** { *; }
+-keep class com.finnflow.data.db.entity.** { *; }
+-keep class com.finnflow.data.model.** { *; }
+-keep class com.finnflow.data.repository.BackupCategoryDto { *; }
+-keep class com.finnflow.data.repository.BackupSubCategoryDto { *; }
+-keep class com.finnflow.data.repository.BackupTransactionDto { *; }
+-keep class com.finnflow.data.repository.BackupPayload { *; }
 -keepattributes *Annotation*

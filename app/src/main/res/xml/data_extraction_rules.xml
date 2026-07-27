@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup / device-transfer config for API 31+. Mirrors backup_rules.xml: only the
+     Room database and DataStore preferences carry over. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="finnflow.db" />
+        <include domain="database" path="finnflow.db-wal" />
+        <include domain="database" path="finnflow.db-shm" />
+        <include domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="finnflow.db" />
+        <include domain="database" path="finnflow.db-wal" />
+        <include domain="database" path="finnflow.db-shm" />
+        <include domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

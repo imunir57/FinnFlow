@@ -1,12 +1,16 @@
 package com.finnflow.ui
 
+import android.app.Activity
+import android.view.WindowManager
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -47,6 +51,18 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     }
     val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
     val isUnlocked by mainViewModel.isUnlocked.collectAsState()
+
+    // Users who enable App Lock opt into the stricter posture: no screenshots and a
+    // blanked-out recents thumbnail. Left off otherwise so screenshots keep working.
+    val window = (LocalContext.current as? Activity)?.window
+    LaunchedEffect(appLockEnabled, window) {
+        if (window == null) return@LaunchedEffect
+        if (appLockEnabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 
     // Wait until DataStore is read before rendering anything
     if (onboardingDone == null) return

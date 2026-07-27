@@ -45,7 +45,13 @@ fun AppLockScreen(
         }
     }
 
-    LaunchedEffect(Unit) { promptAuth() }
+    LaunchedEffect(Unit) {
+        // No biometrics AND no device credential means there is nothing to authenticate
+        // against — e.g. app_lock_enabled was restored from a backup onto a device with no
+        // screen lock. Letting the user through beats locking them out of their own data;
+        // the lock can never be stronger than the device's own security anyway.
+        if (viewModel.canAuthenticate()) promptAuth() else onUnlocked()
+    }
 
     Column(
         modifier = Modifier

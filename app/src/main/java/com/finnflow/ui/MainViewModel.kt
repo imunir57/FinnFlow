@@ -36,4 +36,9 @@ class MainViewModel @Inject constructor(
     fun onUnlocked() {
         _isUnlocked.value = true
     }
+
+    /** Called when the app leaves the foreground so the next return re-prompts App Lock. */
+    fun onLocked() {
+        _isUnlocked.value = false
+    }
 }
