@@ -6,8 +6,8 @@
 <full-backup-content>
     <!-- Room runs in WAL mode: recent writes can sit in the -wal file, so it must be
          backed up alongside the main database file. -->
-    <include domain="database" path="money_manager.db" />
-    <include domain="database" path="money_manager.db-wal" />
-    <include domain="database" path="money_manager.db-shm" />
+    <include domain="database" path="finnflow.db" />
+    <include domain="database" path="finnflow.db-wal" />
+    <include domain="database" path="finnflow.db-shm" />
     <include domain="file" path="datastore/" />
 </full-backup-content>

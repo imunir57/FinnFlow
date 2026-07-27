@@ -3,15 +3,15 @@
      Room database and DataStore preferences carry over. -->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="database" path="money_manager.db" />
-        <include domain="database" path="money_manager.db-wal" />
-        <include domain="database" path="money_manager.db-shm" />
+        <include domain="database" path="finnflow.db" />
+        <include domain="database" path="finnflow.db-wal" />
+        <include domain="database" path="finnflow.db-shm" />
         <include domain="file" path="datastore/" />
     </cloud-backup>
     <device-transfer>
-        <include domain="database" path="money_manager.db" />
-        <include domain="database" path="money_manager.db-wal" />
-        <include domain="database" path="money_manager.db-shm" />
+        <include domain="database" path="finnflow.db" />
+        <include domain="database" path="finnflow.db-wal" />
+        <include domain="database" path="finnflow.db-shm" />
         <include domain="file" path="datastore/" />
     </device-transfer>
 </data-extraction-rules>
