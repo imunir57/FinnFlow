@@ -25,8 +25,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
 
     companion object {
-        // Renamed from the pre-release "money_manager.db" before the first store release;
-        // the name is load-bearing — backup_rules.xml and data_extraction_rules.xml must
+        // The name is load-bearing — backup_rules.xml and data_extraction_rules.xml must
         // list exactly this filename (and its -wal/-shm sidecars).
         const val DATABASE_NAME = "finnflow.db"
 
