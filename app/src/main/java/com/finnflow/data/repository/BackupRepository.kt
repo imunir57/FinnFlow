@@ -7,6 +7,7 @@ import com.finnflow.data.db.dao.TransactionDao
 import com.finnflow.data.db.entity.CategoryEntity
 import com.finnflow.data.db.entity.SubCategoryEntity
 import com.finnflow.data.db.entity.TransactionEntity
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.TransactionType
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
@@ -17,6 +18,8 @@ import java.io.OutputStream
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private const val TAG = "BackupRepository"
 
 /**
  * Backup file schema. Kept independent from the Room entities so the on-disk
@@ -82,77 +85,115 @@ class BackupRepositoryImpl @Inject constructor(
         { block -> db.withTransaction { block() } }
 
     override suspend fun exportBackup(outputStream: OutputStream) {
-        val categories = categoryDao.getAllCategories().first()
-        val subCategories = categoryDao.getAllSubCategories().first()
-        val transactions = transactionDao.getAll().first()
+        SecureLogger.d(TAG, "Starting backup export")
+        try {
+            val categories = categoryDao.getAllCategories().first()
+            val subCategories = categoryDao.getAllSubCategories().first()
+            val transactions = transactionDao.getAll().first()
 
-        val payload = BackupPayload(
-            categories = categories.map {
-                BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex)
-            },
-            subCategories = subCategories.map {
-                BackupSubCategoryDto(it.id, it.categoryId, it.name)
-            },
-            transactions = transactions.map {
-                BackupTransactionDto(
-                    id = it.id,
-                    type = it.type,
-                    amount = it.amount,
-                    date = it.date.toString(),
-                    categoryId = it.categoryId,
-                    subCategoryId = it.subCategoryId,
-                    note = it.note,
-                    fromAccountId = it.fromAccountId,
-                    toAccountId = it.toAccountId
-                )
-            }
-        )
+            SecureLogger.d(TAG, "Backup data loaded: categories=${categories.size}, subCategories=${subCategories.size}, transactions=${transactions.size}")
 
-        outputStream.use { it.write(json.encodeToString(payload).toByteArray(Charsets.UTF_8)) }
+            val payload = BackupPayload(
+                categories = categories.map {
+                    BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex)
+                },
+                subCategories = subCategories.map {
+                    BackupSubCategoryDto(it.id, it.categoryId, it.name)
+                },
+                transactions = transactions.map {
+                    BackupTransactionDto(
+                        id = it.id,
+                        type = it.type,
+                        amount = it.amount,
+                        date = it.date.toString(),
+                        categoryId = it.categoryId,
+                        subCategoryId = it.subCategoryId,
+                        note = it.note,
+                        fromAccountId = it.fromAccountId,
+                        toAccountId = it.toAccountId
+                    )
+                }
+            )
+
+            SecureLogger.d(TAG, "Backup payload constructed, serializing to JSON")
+            val jsonBytes = json.encodeToString(payload).toByteArray(Charsets.UTF_8)
+            SecureLogger.d(TAG, "JSON serialization completed: ${jsonBytes.size} bytes")
+
+            outputStream.use { it.write(jsonBytes) }
+            SecureLogger.i(TAG, "Backup export completed successfully: file size=${jsonBytes.size} bytes")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Backup export failed", e)
+            throw e
+        }
     }
 
     override suspend fun restoreBackup(inputStream: InputStream): Result<Unit> {
+        SecureLogger.d(TAG, "Starting backup restore")
         val entities = try {
-            val text = inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
+            val bytes = inputStream.use { it.readBytes() }
+            SecureLogger.d(TAG, "Backup file read: ${bytes.size} bytes")
+
+            val text = bytes.toString(Charsets.UTF_8)
+            SecureLogger.d(TAG, "JSON deserialization starting")
+
             val payload = json.decodeFromString<BackupPayload>(text)
-            parseAndValidate(payload)
+            SecureLogger.d(TAG, "JSON deserialization completed: version=${payload.version}, categories=${payload.categories.size}, subCategories=${payload.subCategories.size}, transactions=${payload.transactions.size}")
+
+            val parsed = parseAndValidate(payload)
+            SecureLogger.d(TAG, "Backup validation successful")
+            parsed
         } catch (e: Exception) {
+            SecureLogger.e(TAG, "Backup restore failed during parsing/validation", e)
             return Result.failure(e)
         }
 
         return try {
+            SecureLogger.d(TAG, "Starting database transaction for restore")
             transactionRunner {
                 transactionDao.deleteAll()
                 categoryDao.deleteAllSubCategories()
                 categoryDao.deleteAllCategories()
+                SecureLogger.d(TAG, "Database cleared for restore")
 
                 categoryDao.insertAllCategories(entities.categories)
                 categoryDao.insertAllSubCategories(entities.subCategories)
                 transactionDao.insertAll(entities.transactions)
+                SecureLogger.d(TAG, "Database populated: categories=${entities.categories.size}, subCategories=${entities.subCategories.size}, transactions=${entities.transactions.size}")
             }
+            SecureLogger.i(TAG, "Backup restore completed successfully")
             Result.success(Unit)
         } catch (e: Exception) {
+            SecureLogger.e(TAG, "Backup restore failed during database write", e)
             Result.failure(e)
         }
     }
 
     /** Parses DTOs into entities and validates referential integrity before any DB write happens. */
     private fun parseAndValidate(payload: BackupPayload): ParsedBackup {
+        SecureLogger.d(TAG, "Starting backup validation")
+
         val categoryIds = payload.categories.map { it.id }.toSet()
         require(categoryIds.size == payload.categories.size) { "Backup contains duplicate category ids" }
+        SecureLogger.d(TAG, "Category uniqueness validated: ${categoryIds.size} unique categories")
 
         val subCategoryIds = payload.subCategories.map { it.id }.toSet()
         require(subCategoryIds.size == payload.subCategories.size) { "Backup contains duplicate sub-category ids" }
+        SecureLogger.d(TAG, "SubCategory uniqueness validated: ${subCategoryIds.size} unique subcategories")
 
         require(payload.subCategories.all { it.categoryId in categoryIds }) {
             "Backup contains a sub-category referencing an unknown category"
         }
+        SecureLogger.d(TAG, "SubCategory referential integrity validated")
+
         require(payload.transactions.all { it.categoryId in categoryIds }) {
             "Backup contains a transaction referencing an unknown category"
         }
+        SecureLogger.d(TAG, "Transaction category referential integrity validated")
+
         require(payload.transactions.all { it.subCategoryId == null || it.subCategoryId in subCategoryIds }) {
             "Backup contains a transaction referencing an unknown sub-category"
         }
+        SecureLogger.d(TAG, "Transaction subcategory referential integrity validated")
 
         val categories = payload.categories.map {
             CategoryEntity(it.id, it.name, it.type, it.iconName, it.colorHex)
@@ -174,6 +215,7 @@ class BackupRepositoryImpl @Inject constructor(
             )
         }
 
+        SecureLogger.d(TAG, "Backup validation completed: all entities parsed successfully")
         return ParsedBackup(categories, subCategories, transactions)
     }
 

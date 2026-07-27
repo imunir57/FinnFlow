@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.ui.theme.ExpenseClay
 import com.finnflow.ui.theme.IncomeGreen
 import com.finnflow.ui.theme.Ink
@@ -42,6 +43,8 @@ import com.finnflow.ui.theme.Rule
 import com.finnflow.ui.theme.WarmCard
 import com.finnflow.ui.theme.WarmPaper
 import kotlinx.coroutines.flow.collectLatest
+
+private const val TAG = "ProfileScreen"
 
 private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
@@ -87,11 +90,13 @@ fun ProfileScreen(
     }
 
     fun enterEditMode() {
+        SecureLogger.d(TAG, "User entered profile name edit mode")
         draft = profile.displayName
         editing = true
     }
 
     fun commitEdit() {
+        SecureLogger.d(TAG, "User committed profile name edit, length=${draft.length}")
         focusManager.clearFocus()
         viewModel.saveName(draft)
         editing = false
@@ -325,7 +330,10 @@ fun ProfileScreen(
                         }
                     },
                     onClick = if (profile.isSignedIn) null else {
-                        { viewModel.onSignInWithGoogle(context) }
+                        {
+                            SecureLogger.d(TAG, "User tapped Google Sign-In button")
+                            viewModel.onSignInWithGoogle(context)
+                        }
                     }
                 )
             }

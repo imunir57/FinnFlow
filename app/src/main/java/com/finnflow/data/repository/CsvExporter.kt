@@ -1,11 +1,14 @@
 package com.finnflow.data.repository
 
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Transaction
 import java.time.format.DateTimeFormatter
 
 private val exportDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
 private val CsvHeader = listOf("date", "type", "category", "subcategory", "amount", "note")
+
+private const val TAG = "CsvExporter"
 
 /**
  * Pure, side-effect-free CSV formatter for transactions.
@@ -15,11 +18,14 @@ private val CsvHeader = listOf("date", "type", "category", "subcategory", "amoun
  * comma, double quote, or newline; embedded quotes are doubled. Free-text
  * fields are also formula-escaped so a note like "=HYPERLINK(...)" stays
  * inert text when the export is opened in Excel or Google Sheets.
+ *
+ * Logs: export start, row count, and completion.
  */
 fun List<Transaction>.toCsv(
     categoryNameOf: (Long) -> String,
     subCategoryNameOf: (Long?) -> String?
 ): String {
+    SecureLogger.d(TAG, "Starting CSV export for ${this.size} transactions")
     val rows = map { tx ->
         listOf(
             tx.date.format(exportDateFormatter),
@@ -30,9 +36,11 @@ fun List<Transaction>.toCsv(
             tx.note.formulaEscape()
         )
     }
-    return (listOf(CsvHeader) + rows).joinToString(separator = "\r\n") { row ->
+    val csvContent = (listOf(CsvHeader) + rows).joinToString(separator = "\r\n") { row ->
         row.joinToString(separator = ",") { it.csvEscape() }
     }
+    SecureLogger.d(TAG, "CSV export completed: header + ${rows.size} data rows")
+    return csvContent
 }
 
 // Spreadsheet apps evaluate cells starting with these as formulas, even in CSV files —

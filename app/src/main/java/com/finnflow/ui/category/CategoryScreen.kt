@@ -33,10 +33,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.theme.*
+
+private const val TAG = "CategoryScreen"
 
 // ── Icon catalogue ────────────────────────────────────────────────────────────
 
@@ -126,7 +129,10 @@ fun CategoryScreen(
                     color = Ink,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(onClick = { viewModel.openEditSheet(null) }) {
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked Add category button (top bar)")
+                    viewModel.openEditSheet(null)
+                }) {
                     Icon(Icons.Default.Add, contentDescription = "Add category", tint = InkMedium)
                 }
             }
@@ -185,8 +191,14 @@ fun CategoryScreen(
                 ) { _, item ->
                     CategoryRow(
                         item = item,
-                        onOpenSubs = { onNavigateToSubCategories(item.category.id) },
-                        onEdit = { viewModel.openEditSheet(item.category) }
+                        onOpenSubs = {
+                            SecureLogger.d(TAG, "User navigating to sub-categories: categoryId=${item.category.id}")
+                            onNavigateToSubCategories(item.category.id)
+                        },
+                        onEdit = {
+                            SecureLogger.d(TAG, "User clicked Edit: categoryId=${item.category.id}, name=${item.category.name}")
+                            viewModel.openEditSheet(item.category)
+                        }
                     )
                     HorizontalDivider(color = Rule)
                 }
@@ -209,7 +221,10 @@ fun CategoryScreen(
                 .size(56.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Ink)
-                .clickable { viewModel.openEditSheet(null) },
+                .clickable {
+                    SecureLogger.d(TAG, "User clicked Add category FAB")
+                    viewModel.openEditSheet(null)
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Default.Add, contentDescription = "Add category", tint = WarmPaper)
@@ -224,9 +239,11 @@ fun CategoryScreen(
             onClose     = viewModel::closeEditSheet,
             onSave      = { name, type, iconName, colorHex ->
                 if (state.isNewCategory) {
+                    SecureLogger.d(TAG, "Saving new category: name=$name, type=$type")
                     viewModel.addCategory(name, type, iconName, colorHex)
                 } else {
                     state.editingCategory?.let { existing ->
+                        SecureLogger.d(TAG, "Saving category changes: id=${existing.id}, oldName=${existing.name}, newName=$name")
                         viewModel.updateCategory(
                             existing.copy(name = name, type = type, iconName = iconName, colorHex = colorHex)
                         )
@@ -235,6 +252,7 @@ fun CategoryScreen(
                 viewModel.closeEditSheet()
             },
             onDelete = { cat ->
+                SecureLogger.d(TAG, "User deleted category: id=${cat.id}, name=${cat.name}")
                 viewModel.deleteCategory(cat)
                 viewModel.closeEditSheet()
             }
@@ -267,7 +285,10 @@ private fun CategoryTypeToggle(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
                         .background(if (active) Ink else Color.Transparent)
-                        .clickable { onTypeChange(type) }
+                        .clickable {
+                            SecureLogger.d(TAG, "User changed category filter: type=$type")
+                            onTypeChange(type)
+                        }
                         .padding(horizontal = 18.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -566,7 +587,10 @@ fun CategoryEditSheet(
                                     color  = if (active) previewColor else Rule,
                                     shape  = RoundedCornerShape(10.dp)
                                 )
-                                .clickable { iconKey = key },
+                                .clickable {
+                                    SecureLogger.d(TAG, "User selected icon: key=$key")
+                                    iconKey = key
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -601,7 +625,10 @@ fun CategoryEditSheet(
                                     if (active) Modifier.border(3.dp, WarmPaper, CircleShape)
                                     else Modifier
                                 )
-                                .clickable { colorHex = hex },
+                                .clickable {
+                                    SecureLogger.d(TAG, "User selected color: hex=$hex")
+                                    colorHex = hex
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             if (active) {
@@ -708,7 +735,10 @@ fun SubCategoryScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(onClick = {
+                SecureLogger.d(TAG, "User clicked Add sub-category FAB")
+                showAddDialog = true
+            }) {
                 Icon(Icons.Default.Add, "Add sub-category")
             }
         }
@@ -717,8 +747,14 @@ fun SubCategoryScreen(
             itemsIndexed(state.subCategories, key = { _, sub -> sub.id }) { _, sub ->
                 SubCategoryItem(
                     subCategory = sub,
-                    onEdit      = { viewModel.updateSubCategory(it) },
-                    onDelete    = { viewModel.deleteSubCategory(it) }
+                    onEdit      = {
+                        SecureLogger.d(TAG, "User saved sub-category: id=${it.id}, name=${it.name}")
+                        viewModel.updateSubCategory(it)
+                    },
+                    onDelete    = {
+                        SecureLogger.d(TAG, "User deleted sub-category: id=${it.id}, name=${it.name}")
+                        viewModel.deleteSubCategory(it)
+                    }
                 )
                 HorizontalDivider()
             }
@@ -740,7 +776,13 @@ fun SubCategoryScreen(
             },
             confirmButton = {
                 TextButton(
-                    onClick  = { if (name.isNotBlank()) { viewModel.addSubCategory(name.trim()); showAddDialog = false } },
+                    onClick  = {
+                        if (name.isNotBlank()) {
+                            SecureLogger.d(TAG, "User creating sub-category: name=$name")
+                            viewModel.addSubCategory(name.trim())
+                            showAddDialog = false
+                        }
+                    },
                     enabled  = name.isNotBlank()
                 ) { Text("Add") }
             },
@@ -761,8 +803,14 @@ fun SubCategoryItem(
         headlineContent = { Text(subCategory.name) },
         trailingContent = {
             Row {
-                IconButton(onClick = { showEdit = true }) { Icon(Icons.Default.Edit, "Edit") }
-                IconButton(onClick = { onDelete(subCategory) }) { Icon(Icons.Default.Delete, "Delete") }
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked Edit sub-category: id=${subCategory.id}")
+                    showEdit = true
+                }) { Icon(Icons.Default.Edit, "Edit") }
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked Delete sub-category: id=${subCategory.id}")
+                    onDelete(subCategory)
+                }) { Icon(Icons.Default.Delete, "Delete") }
             }
         }
     )
@@ -777,7 +825,11 @@ fun SubCategoryItem(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (name.isNotBlank()) { onEdit(subCategory.copy(name = name.trim())); showEdit = false }
+                    if (name.isNotBlank()) {
+                        SecureLogger.d(TAG, "User saving sub-category edit: id=${subCategory.id}, oldName=${subCategory.name}, newName=$name")
+                        onEdit(subCategory.copy(name = name.trim()))
+                        showEdit = false
+                    }
                 }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { showEdit = false }) { Text("Cancel") } }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.biometric.BiometricAuthenticator
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.notification.ReminderScheduler
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
@@ -23,6 +24,8 @@ import kotlinx.coroutines.launch
 import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
+
+private const val TAG = "SettingsViewModel"
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -44,18 +47,40 @@ class SettingsViewModel @Inject constructor(
      * offer a share sheet.
      */
     fun exportCsv(outputStream: OutputStream, onComplete: () -> Unit = {}) {
+        SecureLogger.d(TAG, "CSV export started")
         viewModelScope.launch {
-            transactionRepository.exportTransactionsCsv(outputStream)
-            onComplete()
+            try {
+                transactionRepository.exportTransactionsCsv(outputStream)
+                SecureLogger.d(TAG, "CSV export completed successfully")
+                onComplete()
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "CSV export failed", e)
+            }
         }
     }
 
     fun onCurrencySelected(code: String) {
-        viewModelScope.launch { profileRepository.setCurrencyCode(code) }
+        SecureLogger.d(TAG, "Currency changed to: $code")
+        viewModelScope.launch {
+            try {
+                profileRepository.setCurrencyCode(code)
+                SecureLogger.d(TAG, "Currency preference saved: $code")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to save currency preference", e)
+            }
+        }
     }
 
     fun onThemeModeSelected(mode: String) {
-        viewModelScope.launch { profileRepository.setThemeMode(mode) }
+        SecureLogger.d(TAG, "Theme mode changed to: $mode")
+        viewModelScope.launch {
+            try {
+                profileRepository.setThemeMode(mode)
+                SecureLogger.d(TAG, "Theme mode preference saved: $mode")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to save theme mode preference", e)
+            }
+        }
     }
 
     // Explains why App Lock couldn't be enabled (unsupported device, no biometrics enrolled, etc).
@@ -63,37 +88,71 @@ class SettingsViewModel @Inject constructor(
     val appLockMessage: StateFlow<String?> = _appLockMessage.asStateFlow()
 
     fun onNotificationsToggled(enabled: Boolean) {
+        SecureLogger.d(TAG, "Notifications toggled: enabled=$enabled")
         viewModelScope.launch {
-            profileRepository.setNotificationsEnabled(enabled)
-            if (enabled) reminderScheduler.schedule() else reminderScheduler.cancel()
+            try {
+                profileRepository.setNotificationsEnabled(enabled)
+                if (enabled) {
+                    reminderScheduler.schedule()
+                    SecureLogger.d(TAG, "Notification reminders scheduled")
+                } else {
+                    reminderScheduler.cancel()
+                    SecureLogger.d(TAG, "Notification reminders cancelled")
+                }
+                SecureLogger.i(TAG, "Notification preference saved: enabled=$enabled")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to toggle notifications", e)
+            }
         }
     }
 
     fun onAppLockToggled(enabled: Boolean, activity: FragmentActivity?) {
+        SecureLogger.d(TAG, "App Lock toggle attempted: enabled=$enabled")
         if (!enabled) {
             _appLockMessage.value = null
-            viewModelScope.launch { profileRepository.setAppLockEnabled(false) }
+            viewModelScope.launch {
+                try {
+                    profileRepository.setAppLockEnabled(false)
+                    SecureLogger.d(TAG, "App Lock disabled successfully")
+                } catch (e: Exception) {
+                    SecureLogger.e(TAG, "Failed to disable App Lock", e)
+                }
+            }
             return
         }
 
         if (!biometricAuthenticator.canAuthenticate()) {
+            SecureLogger.w(TAG, "App Lock enable failed: biometric authentication not available")
             _appLockMessage.value =
                 "Set up a screen lock or biometrics in your device settings to use App Lock"
             return
         }
 
         if (activity == null) {
+            SecureLogger.w(TAG, "App Lock enable failed: activity is null")
             _appLockMessage.value = "Couldn't start authentication"
             return
         }
 
+        SecureLogger.d(TAG, "Initiating biometric authentication for App Lock enable")
         biometricAuthenticator.authenticate(
             activity = activity,
             onSuccess = {
                 _appLockMessage.value = null
-                viewModelScope.launch { profileRepository.setAppLockEnabled(true) }
+                SecureLogger.d(TAG, "Biometric authentication succeeded, enabling App Lock")
+                viewModelScope.launch {
+                    try {
+                        profileRepository.setAppLockEnabled(true)
+                        SecureLogger.d(TAG, "App Lock enabled successfully")
+                    } catch (e: Exception) {
+                        SecureLogger.e(TAG, "Failed to enable App Lock", e)
+                    }
+                }
             },
-            onError = { message -> _appLockMessage.value = message }
+            onError = { message ->
+                SecureLogger.w(TAG, "Biometric authentication failed: $message")
+                _appLockMessage.value = message
+            }
         )
     }
 
@@ -102,15 +161,22 @@ class SettingsViewModel @Inject constructor(
 
     fun performBackup(outputStream: OutputStream?) {
         if (outputStream == null) {
+            SecureLogger.w(TAG, "Backup operation failed: output stream is null")
             viewModelScope.launch { _messages.send("Couldn't open the selected file") }
             return
         }
         viewModelScope.launch {
             try {
+                SecureLogger.i(TAG, "Backup operation initiated by user")
+                val startTime = System.currentTimeMillis()
                 backupRepository.exportBackup(outputStream)
-                profileRepository.setLastBackupTimestamp(System.currentTimeMillis())
+                val timestamp = System.currentTimeMillis()
+                profileRepository.setLastBackupTimestamp(timestamp)
+                val duration = timestamp - startTime
+                SecureLogger.i(TAG, "Backup operation completed successfully in ${duration}ms, timestamp recorded: $timestamp")
                 _messages.send("Backup saved")
             } catch (e: Exception) {
+                SecureLogger.e(TAG, "Backup operation failed", e)
                 _messages.send("Backup failed: ${e.message ?: "unknown error"}")
             }
         }
@@ -118,22 +184,42 @@ class SettingsViewModel @Inject constructor(
 
     fun performRestore(inputStream: InputStream?) {
         if (inputStream == null) {
+            SecureLogger.w(TAG, "Restore operation failed: input stream is null")
             viewModelScope.launch { _messages.send("Couldn't open the selected file") }
             return
         }
         viewModelScope.launch {
+            SecureLogger.i(TAG, "Restore operation initiated by user")
+            val startTime = System.currentTimeMillis()
             backupRepository.restoreBackup(inputStream).fold(
-                onSuccess = { _messages.send("Restore complete") },
-                onFailure = { _messages.send("Restore failed: ${it.message ?: "invalid backup file"}") }
+                onSuccess = {
+                    val duration = System.currentTimeMillis() - startTime
+                    SecureLogger.i(TAG, "Restore operation completed successfully in ${duration}ms")
+                    _messages.send("Restore complete")
+                },
+                onFailure = { error ->
+                    val duration = System.currentTimeMillis() - startTime
+                    SecureLogger.e(TAG, "Restore operation failed after ${duration}ms: ${error.message}", error)
+                    _messages.send("Restore failed: ${error.message ?: "invalid backup file"}")
+                }
             )
         }
     }
 
     fun onSignOut(context: Context) {
+        SecureLogger.d(TAG, "User initiated sign out")
         viewModelScope.launch {
-            googleAuthClient.signOut(context)
-            profileRepository.signOutGoogle()
-            _messages.send("Signed out")
+            try {
+                googleAuthClient.signOut(context)
+                SecureLogger.d(TAG, "Google authentication sign out completed")
+                profileRepository.signOutGoogle()
+                SecureLogger.d(TAG, "Profile sign out data cleared")
+                _messages.send("Signed out")
+                SecureLogger.i(TAG, "Sign out operation completed successfully")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Sign out operation failed", e)
+                _messages.send("Sign out failed: ${e.message ?: "unknown error"}")
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ package com.finnflow.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
@@ -15,6 +16,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+
+private const val TAG = "HomeViewModel"
 
 data class HomeUiState(
     val selectedMonth: YearMonth = YearMonth.now(),
@@ -37,6 +40,10 @@ class HomeViewModel @Inject constructor(
     private val profileRepo: UserProfileRepository
 ) : ViewModel() {
 
+    init {
+        SecureLogger.d(TAG, "HomeViewModel initialized")
+    }
+
     private val _selectedMonth = MutableStateFlow(YearMonth.now())
 
     private data class TxData(val month: YearMonth, val txs: List<Transaction>, val groups: Map<LocalDate, List<Transaction>>)
@@ -44,18 +51,23 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         _selectedMonth.flatMapLatest { month ->
             val yearMonth = month.format(DateTimeFormatter.ofPattern("yyyy-MM"))
+            SecureLogger.d(TAG, "Loading transactions for month: $yearMonth")
             repository.getTransactionsByMonth(yearMonth).map { txs ->
+                SecureLogger.d(TAG, "Loaded ${txs.size} transactions for $yearMonth")
                 TxData(month, txs, txs.groupBy { it.date })
             }
         },
         categoryRepo.getAllCategories(),
         profileRepo.profile
     ) { txData, cats, profile ->
+        val income = txData.txs.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val expense = txData.txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        SecureLogger.d(TAG, "HomeUiState computed: month=${txData.month}, tx_count=${txData.txs.size}, income_sum=$income, expense_sum=$expense, daily_groups=${txData.groups.size}")
         HomeUiState(
             selectedMonth = txData.month,
             transactions  = txData.txs,
-            totalIncome   = txData.txs.filter { it.type == TransactionType.INCOME  }.sumOf { it.amount },
-            totalExpense  = txData.txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
+            totalIncome   = income,
+            totalExpense  = expense,
             dailyGroups   = txData.groups,
             categories    = cats.associateBy { it.id },
             isLoading     = false,
@@ -64,10 +76,27 @@ class HomeViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun previousMonth() { _selectedMonth.update { it.minusMonths(1) } }
-    fun nextMonth()     { _selectedMonth.update { it.plusMonths(1) } }
+    fun previousMonth() {
+        val newMonth = _selectedMonth.value.minusMonths(1)
+        SecureLogger.d(TAG, "User navigated to previous month: $newMonth")
+        _selectedMonth.update { it.minusMonths(1) }
+    }
+
+    fun nextMonth() {
+        val newMonth = _selectedMonth.value.plusMonths(1)
+        SecureLogger.d(TAG, "User navigated to next month: $newMonth")
+        _selectedMonth.update { it.plusMonths(1) }
+    }
 
     fun deleteTransaction(transaction: Transaction) {
-        viewModelScope.launch { repository.deleteTransaction(transaction) }
+        SecureLogger.d(TAG, "Deleting transaction: id=${transaction.id}, category=${transaction.categoryId}")
+        viewModelScope.launch {
+            try {
+                repository.deleteTransaction(transaction)
+                SecureLogger.d(TAG, "Transaction deleted successfully: id=${transaction.id}")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to delete transaction: id=${transaction.id}", e)
+            }
+        }
     }
 }

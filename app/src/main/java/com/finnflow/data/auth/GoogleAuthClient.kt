@@ -20,6 +20,12 @@ sealed interface GoogleAuthResult {
  * mocked in ViewModel tests, mirroring BiometricAuthenticator's pattern. Callers pass a
  * Context obtained via LocalContext.current in Compose — no Context is retained inside a
  * ViewModel.
+ *
+ * Logging: All operations are logged at INFO level via SecureLogger, including:
+ * - Sign-in attempts and outcomes (success/cancellation/error)
+ * - Error reasons without exposing credentials or tokens
+ * - Sign-out operations (best-effort)
+ * Any sensitive data (emails, tokens, IDs) is automatically masked by SecureLogger.
  */
 interface GoogleAuthClient {
     suspend fun signIn(context: Context): GoogleAuthResult

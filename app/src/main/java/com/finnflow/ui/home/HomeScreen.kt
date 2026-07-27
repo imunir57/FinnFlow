@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
@@ -39,6 +40,8 @@ import com.finnflow.ui.theme.WarmPaper
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+
+private const val TAG = "HomeScreen"
 
 private fun parseColor(hex: String): Color = try {
     Color(android.graphics.Color.parseColor(hex))
@@ -56,15 +59,23 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
+    SecureLogger.d(TAG, "HomeScreen rendered")
     val state by viewModel.uiState.collectAsState()
     val monthLabel = state.selectedMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) +
             " " + state.selectedMonth.year
+
+    LaunchedEffect(state.selectedMonth) {
+        SecureLogger.d(TAG, "HomeUiState changed: month=${state.selectedMonth}, tx_count=${state.transactions.size}, balance=${state.balance}")
+    }
 
     Scaffold(
         containerColor = WarmPaper,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAddTransaction,
+                onClick = {
+                    SecureLogger.d(TAG, "User clicked add transaction FAB")
+                    onAddTransaction()
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor   = WarmPaper,
             ) {
@@ -86,7 +97,10 @@ fun HomeScreen(
                         .size(38.dp)
                         .clip(CircleShape)
                         .background(IncomeGreen)
-                        .clickable(onClick = onNavigateToProfile),
+                        .clickable(onClick = {
+                            SecureLogger.d(TAG, "User clicked profile avatar")
+                            onNavigateToProfile()
+                        }),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(state.initials, color = WarmPaper, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -106,7 +120,10 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                 }
-                IconButton(onClick = onNavigateToSettings) {
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked settings button")
+                    onNavigateToSettings()
+                }) {
                     Icon(Icons.Default.Settings, "Settings", tint = InkMedium)
                 }
             }
@@ -119,7 +136,10 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                IconButton(onClick = viewModel::previousMonth) {
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked previous month")
+                    viewModel.previousMonth()
+                }) {
                     Icon(Icons.Default.ArrowBack, "Previous month", tint = InkMedium, modifier = Modifier.size(18.dp))
                 }
                 Text(
@@ -128,7 +148,10 @@ fun HomeScreen(
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
-                IconButton(onClick = viewModel::nextMonth) {
+                IconButton(onClick = {
+                    SecureLogger.d(TAG, "User clicked next month")
+                    viewModel.nextMonth()
+                }) {
                     Icon(Icons.Default.ArrowForward, "Next month", tint = InkMedium, modifier = Modifier.size(18.dp))
                 }
             }
@@ -363,12 +386,29 @@ private fun TxRow(
             color = if (isIncome) IncomeGreen else MaterialTheme.colorScheme.onBackground
         )
         Box {
-            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = {
+                SecureLogger.d(TAG, "User opened transaction menu for id=${transaction.id}")
+                showMenu = true
+            }, modifier = Modifier.size(32.dp)) {
                 Icon(Icons.Default.MoreVert, "Options", tint = InkFaint, modifier = Modifier.size(18.dp))
             }
             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                DropdownMenuItem(text = { Text("Edit") },   onClick = { showMenu = false; onEdit() })
-                DropdownMenuItem(text = { Text("Delete") }, onClick = { showMenu = false; onDelete() })
+                DropdownMenuItem(
+                    text = { Text("Edit") },
+                    onClick = {
+                        SecureLogger.d(TAG, "User clicked edit for transaction id=${transaction.id}")
+                        showMenu = false
+                        onEdit()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete") },
+                    onClick = {
+                        SecureLogger.d(TAG, "User clicked delete for transaction id=${transaction.id}")
+                        showMenu = false
+                        onDelete()
+                    }
+                )
             }
         }
     }

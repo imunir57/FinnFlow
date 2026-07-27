@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Currency
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.ui.components.ConfirmationDialog
@@ -49,6 +50,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+
+private const val TAG = "SettingsScreen"
 
 private val IconCategories   = Color(0xFF7A5C3E)
 private val IconCurrency     = Color(0xFF3E4A8A)
@@ -80,11 +83,19 @@ fun SettingsScreen(
     val exportCsvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv")
     ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val outputStream = context.contentResolver.openOutputStream(uri) ?: return@rememberLauncherForActivityResult
+        if (uri == null) {
+            SecureLogger.d(TAG, "CSV export cancelled by user")
+            return@rememberLauncherForActivityResult
+        }
+        SecureLogger.d(TAG, "CSV export file selected")
+        val outputStream = context.contentResolver.openOutputStream(uri) ?: run {
+            SecureLogger.w(TAG, "Failed to open output stream for CSV export")
+            return@rememberLauncherForActivityResult
+        }
         pendingExportUri = uri
         viewModel.exportCsv(outputStream) {
             val savedUri = pendingExportUri ?: return@exportCsv
+            SecureLogger.d(TAG, "CSV export completed, opening share sheet")
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, savedUri)
@@ -97,7 +108,12 @@ fun SettingsScreen(
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) viewModel.onNotificationsToggled(true)
+        if (granted) {
+            SecureLogger.d(TAG, "Notification permission granted")
+            viewModel.onNotificationsToggled(true)
+        } else {
+            SecureLogger.w(TAG, "Notification permission denied by user")
+        }
     }
 
     var showCurrencyPicker by remember { mutableStateOf(false) }
@@ -107,7 +123,10 @@ fun SettingsScreen(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
         if (uri != null) {
+            SecureLogger.d(TAG, "Backup file location selected, initiating backup")
             viewModel.performBackup(context.contentResolver.openOutputStream(uri))
+        } else {
+            SecureLogger.d(TAG, "Backup operation cancelled by user")
         }
     }
 
@@ -115,7 +134,10 @@ fun SettingsScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
+            SecureLogger.d(TAG, "Restore file selected, initiating restore operation")
             viewModel.performRestore(context.contentResolver.openInputStream(uri))
+        } else {
+            SecureLogger.d(TAG, "Restore operation cancelled by user")
         }
     }
 
@@ -131,10 +153,14 @@ fun SettingsScreen(
             message = "This replaces all current data — continue?",
             confirmLabel = "Restore",
             onConfirm = {
+                SecureLogger.d(TAG, "User confirmed restore operation")
                 showRestoreConfirmation = false
                 restoreLauncher.launch(arrayOf("application/json"))
             },
-            onDismiss = { showRestoreConfirmation = false }
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled restore confirmation")
+                showRestoreConfirmation = false
+            }
         )
     }
 
@@ -176,7 +202,10 @@ fun SettingsScreen(
                     iconColor = IconCategories,
                     label = "Categories",
                     subtitle = "Add, edit, reorder categories",
-                    onClick = onNavigateToCategories
+                    onClick = {
+                        SecureLogger.d(TAG, "User navigated to Categories")
+                        onNavigateToCategories()
+                    }
                 )
             }
             item {
@@ -192,7 +221,10 @@ fun SettingsScreen(
                             color = InkMedium
                         )
                     },
-                    onClick = { showCurrencyPicker = true }
+                    onClick = {
+                        SecureLogger.d(TAG, "User opened currency picker")
+                        showCurrencyPicker = true
+                    }
                 )
             }
             item {
@@ -203,7 +235,9 @@ fun SettingsScreen(
                     subtitle = "Daily reminder · 9:00 PM",
                     checked = profile.notificationsEnabled,
                     onCheckedChange = { enabled ->
+                        SecureLogger.d(TAG, "Notifications toggle changed: enabled=$enabled")
                         if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            SecureLogger.d(TAG, "Requesting POST_NOTIFICATIONS permission")
                             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         } else {
                             viewModel.onNotificationsToggled(enabled)
@@ -219,7 +253,10 @@ fun SettingsScreen(
                     iconColor = IconBackup,
                     label = "Backup",
                     subtitle = formatBackupTimestamp(profile.lastBackupTimestamp),
-                    onClick = { backupLauncher.launch("finnflow_backup.json") }
+                    onClick = {
+                        SecureLogger.d(TAG, "User initiated backup operation")
+                        backupLauncher.launch("finnflow_backup.json")
+                    }
                 )
             }
             item {
@@ -228,7 +265,10 @@ fun SettingsScreen(
                     iconColor = IconRestore,
                     label = "Restore",
                     subtitle = "From a previous backup file",
-                    onClick = { showRestoreConfirmation = true }
+                    onClick = {
+                        SecureLogger.d(TAG, "User tapped restore, showing confirmation dialog")
+                        showRestoreConfirmation = true
+                    }
                 )
             }
             item {
@@ -238,6 +278,7 @@ fun SettingsScreen(
                     label = "Export to CSV",
                     subtitle = "Share your transactions as a spreadsheet",
                     onClick = {
+                        SecureLogger.d(TAG, "User initiated CSV export")
                         exportCsvLauncher.launch("finnflow-transactions-${LocalDate.now()}.csv")
                     }
                 )
@@ -252,7 +293,10 @@ fun SettingsScreen(
                     right = {
                         Text(themeModeLabel(profile.themeMode), fontSize = 12.5.sp, color = InkMedium)
                     },
-                    onClick = { showAppearancePicker = true }
+                    onClick = {
+                        SecureLogger.d(TAG, "User opened appearance/theme picker")
+                        showAppearancePicker = true
+                    }
                 )
             }
             item {
@@ -262,7 +306,10 @@ fun SettingsScreen(
                     label = "App Lock",
                     subtitle = appLockMessage ?: "Require fingerprint to open",
                     checked = profile.appLockEnabled,
-                    onCheckedChange = { enabled -> viewModel.onAppLockToggled(enabled, activity) }
+                    onCheckedChange = { enabled ->
+                        SecureLogger.d(TAG, "App Lock toggle changed: enabled=$enabled")
+                        viewModel.onAppLockToggled(enabled, activity)
+                    }
                 )
             }
             item {
@@ -271,13 +318,19 @@ fun SettingsScreen(
                     iconColor = IconAbout,
                     label = "About FinnFlow",
                     subtitle = "Version ${com.finnflow.BuildConfig.VERSION_NAME} · Build ${com.finnflow.BuildConfig.VERSION_CODE}",
-                    onClick = onNavigateToAbout
+                    onClick = {
+                        SecureLogger.d(TAG, "User navigated to About screen")
+                        onNavigateToAbout()
+                    }
                 )
             }
 
             item {
                 OutlinedButton(
-                    onClick = { viewModel.onSignOut(context) },
+                    onClick = {
+                        SecureLogger.d(TAG, "User tapped Sign out button")
+                        viewModel.onSignOut(context)
+                    },
                     enabled = profile.isSignedIn,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -319,10 +372,14 @@ fun SettingsScreen(
             options = Currency.entries.map { PickerOption(it.code, "${it.symbol}  ${it.displayName}") },
             selectedValue = profile.currencyCode,
             onOptionSelected = { code ->
+                SecureLogger.d(TAG, "User selected currency: $code")
                 viewModel.onCurrencySelected(code)
                 showCurrencyPicker = false
             },
-            onDismiss = { showCurrencyPicker = false }
+            onDismiss = {
+                SecureLogger.d(TAG, "Currency picker dismissed")
+                showCurrencyPicker = false
+            }
         )
     }
 
@@ -335,10 +392,14 @@ fun SettingsScreen(
             ),
             selectedValue = profile.themeMode,
             onOptionSelected = { mode ->
+                SecureLogger.d(TAG, "User selected theme mode: $mode")
                 viewModel.onThemeModeSelected(mode)
                 showAppearancePicker = false
             },
-            onDismiss = { showAppearancePicker = false }
+            onDismiss = {
+                SecureLogger.d(TAG, "Appearance picker dismissed")
+                showAppearancePicker = false
+            }
         )
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.auth.GoogleAuthResult
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
@@ -18,6 +19,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "ProfileViewModel"
 
 data class ProfileUiState(
     val profile: UserProfile = UserProfile(),
@@ -37,6 +40,7 @@ class ProfileViewModel @Inject constructor(
         profileRepository.profile,
         transactionRepository.getAllTransactions()
     ) { profile, transactions ->
+        SecureLogger.d(TAG, "Profile state updated: displayName=${profile.displayName.take(1)}***, currencyCode=${profile.currencyCode}, isSignedIn=${profile.isSignedIn}")
         ProfileUiState(
             profile = profile,
             totalIncome = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
@@ -49,20 +53,42 @@ class ProfileViewModel @Inject constructor(
     val messages = _messages.receiveAsFlow()
 
     fun saveName(name: String) {
-        viewModelScope.launch { profileRepository.saveProfile(name) }
+        SecureLogger.d(TAG, "saveName called with name length=${name.length}")
+        viewModelScope.launch {
+            try {
+                profileRepository.saveProfile(name)
+                SecureLogger.d(TAG, "Profile name saved successfully")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to save profile name", e)
+            }
+        }
     }
 
     fun onSignInWithGoogle(context: Context) {
+        SecureLogger.d(TAG, "Google Sign-In initiated")
         viewModelScope.launch {
-            when (val result = googleAuthClient.signIn(context)) {
-                is GoogleAuthResult.Success -> profileRepository.signInWithGoogle(
-                    displayName = result.identity.displayName,
-                    email = result.identity.email,
-                    avatarUrl = result.identity.avatarUrl,
-                    googleAccountId = result.identity.googleAccountId
-                )
-                is GoogleAuthResult.Cancelled -> Unit
-                is GoogleAuthResult.Error -> _messages.send(result.message)
+            try {
+                when (val result = googleAuthClient.signIn(context)) {
+                    is GoogleAuthResult.Success -> {
+                        SecureLogger.d(TAG, "Google Sign-In successful, saving profile data")
+                        profileRepository.signInWithGoogle(
+                            displayName = result.identity.displayName,
+                            email = result.identity.email,
+                            avatarUrl = result.identity.avatarUrl,
+                            googleAccountId = result.identity.googleAccountId
+                        )
+                        SecureLogger.d(TAG, "Profile updated with Google account data")
+                    }
+                    is GoogleAuthResult.Cancelled -> {
+                        SecureLogger.d(TAG, "Google Sign-In cancelled by user")
+                    }
+                    is GoogleAuthResult.Error -> {
+                        SecureLogger.w(TAG, "Google Sign-In error: ${result.message}")
+                        _messages.send(result.message)
+                    }
+                }
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Exception during Google Sign-In", e)
             }
         }
     }

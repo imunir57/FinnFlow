@@ -9,6 +9,7 @@ import com.finnflow.data.db.dao.TransactionDao
 import com.finnflow.data.db.entity.CategoryEntity
 import com.finnflow.data.db.entity.SubCategoryEntity
 import com.finnflow.data.db.entity.TransactionEntity
+import com.finnflow.data.logger.SecureLogger
 
 @Database(
     entities = [
@@ -25,6 +26,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
 
     companion object {
+        private const val TAG = "AppDatabase"
+
         // The name is load-bearing — backup_rules.xml and data_extraction_rules.xml must
         // list exactly this filename (and its -wal/-shm sidecars).
         const val DATABASE_NAME = "finnflow.db"
@@ -37,5 +40,9 @@ abstract class AppDatabase : RoomDatabase() {
          * migration with a MigrationTestHelper test under src/androidTest.
          */
         val MIGRATIONS: Array<Migration> = emptyArray()
+
+        init {
+            SecureLogger.d(TAG, "AppDatabase initialized with schema version 2, database name: $DATABASE_NAME")
+        }
     }
 }

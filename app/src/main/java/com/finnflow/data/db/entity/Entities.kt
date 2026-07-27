@@ -10,6 +10,14 @@ import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import java.time.LocalDate
 
+/**
+ * Transaction entity for Room persistence.
+ *
+ * DAOs (TransactionDao) perform bulk operations that are logged at the repository level.
+ * For logging strategy, see BackupRepository (backup/restore operations) and
+ * TransactionRepository (export operations). Individual DAO queries are not logged
+ * to avoid excessive overhead.
+ */
 @Entity(tableName = "transactions",
     foreignKeys = [
         ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["categoryId"], onDelete = ForeignKey.RESTRICT),
@@ -35,6 +43,12 @@ data class TransactionEntity(
     }
 }
 
+/**
+ * Category entity for Room persistence.
+ *
+ * DAOs (CategoryDao) perform bulk operations that are logged at the repository level
+ * (see BackupRepository for backup/restore logging). Individual DAO queries are not logged.
+ */
 @Entity(tableName = "categories")
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -50,6 +64,12 @@ data class CategoryEntity(
     }
 }
 
+/**
+ * SubCategory entity for Room persistence.
+ *
+ * DAOs (CategoryDao) perform bulk operations that are logged at the repository level
+ * (see BackupRepository for backup/restore logging). Individual DAO queries are not logged.
+ */
 @Entity(tableName = "sub_categories",
     foreignKeys = [ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["categoryId"], onDelete = ForeignKey.CASCADE)],
     indices = [Index("categoryId")]

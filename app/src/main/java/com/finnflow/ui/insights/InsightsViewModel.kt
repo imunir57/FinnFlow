@@ -2,6 +2,7 @@ package com.finnflow.ui.insights
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
@@ -13,6 +14,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+
+private const val TAG = "InsightsViewModel"
 
 data class InsightsUiState(
     val income: Double = 0.0,
@@ -66,10 +69,15 @@ class InsightsViewModel @Inject constructor(
     private val repository: TransactionRepository
 ) : ViewModel() {
 
+    init {
+        SecureLogger.d(TAG, "InsightsViewModel initialized")
+    }
+
     private val _month = MutableStateFlow(YearMonth.now())
 
     val uiState: StateFlow<InsightsUiState> = _month.flatMapLatest { ym ->
         val prevYm = ym.minusMonths(1)
+        SecureLogger.d(TAG, "Loading insights data for month: $ym")
         combine(
             repository.getTransactionsByMonth(ym.toString()),
             repository.getCategorySummary(ym.atDay(1), ym.atEndOfMonth(), TransactionType.EXPENSE),
@@ -79,8 +87,17 @@ class InsightsViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InsightsUiState())
 
-    fun previousMonth() { _month.update { it.minusMonths(1) } }
-    fun nextMonth() { _month.update { it.plusMonths(1) } }
+    fun previousMonth() {
+        val newMonth = _month.value.minusMonths(1)
+        SecureLogger.d(TAG, "User navigated to previous month: $newMonth")
+        _month.update { it.minusMonths(1) }
+    }
+
+    fun nextMonth() {
+        val newMonth = _month.value.plusMonths(1)
+        SecureLogger.d(TAG, "User navigated to next month: $newMonth")
+        _month.update { it.plusMonths(1) }
+    }
 
     private fun buildState(
         txns: List<Transaction>,
@@ -125,6 +142,8 @@ class InsightsViewModel @Inject constructor(
         val prevMap = prevExpense.associate { it.categoryId to it.totalAmount }
         val biggestMoM = curExpense.maxByOrNull { it.totalAmount - (prevMap[it.categoryId] ?: 0.0) }
         val biggestMoMDelta = biggestMoM?.let { it.totalAmount - (prevMap[it.categoryId] ?: 0.0) } ?: 0.0
+
+        SecureLogger.d(TAG, "InsightsUiState calculated: month=$ym, income=$income, expense=$expense, days_in_month=$daysInMonth, biggest_expense=${biggestExpense?.amount}, top_category=${topCatEntry?.key}, mom_leader=${biggestMoM?.categoryName}")
 
         return InsightsUiState(
             income = income,

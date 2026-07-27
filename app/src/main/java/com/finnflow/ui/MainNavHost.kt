@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.ui.category.CategoryScreen
 import com.finnflow.ui.category.SubCategoryScreen
 import com.finnflow.ui.components.BottomNavBar
@@ -34,6 +35,7 @@ import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.transaction.TransactionFormScreen
 import com.finnflow.ui.yearly.YearlyScreen
 
+private const val TAG = "MainNavHost"
 private val bottomBarRoutes = setOf(
     Screen.Home.route,
     Screen.Stats.route,
@@ -52,23 +54,31 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
     val isUnlocked by mainViewModel.isUnlocked.collectAsState()
 
+    SecureLogger.d(TAG, "NavHost state - onboardingDone: $onboardingDone, appLockEnabled: $appLockEnabled, isUnlocked: $isUnlocked, themeMode: $themeMode")
+
     // Users who enable App Lock opt into the stricter posture: no screenshots and a
     // blanked-out recents thumbnail. Left off otherwise so screenshots keep working.
     val window = (LocalContext.current as? Activity)?.window
     LaunchedEffect(appLockEnabled, window) {
         if (window == null) return@LaunchedEffect
         if (appLockEnabled) {
+            SecureLogger.d(TAG, "Setting FLAG_SECURE for app lock")
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
+            SecureLogger.d(TAG, "Clearing FLAG_SECURE - app lock disabled")
             window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 
     // Wait until DataStore is read before rendering anything
-    if (onboardingDone == null) return
+    if (onboardingDone == null) {
+        SecureLogger.d(TAG, "DataStore still loading, deferring render")
+        return
+    }
 
     FinnFlowTheme(darkTheme = isDarkTheme) {
     if (appLockEnabled && !isUnlocked) {
+        SecureLogger.d(TAG, "Rendering AppLockScreen - app locked")
         AppLockScreen(onUnlocked = mainViewModel::onUnlocked)
         return@FinnFlowTheme
     }
@@ -77,6 +87,10 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
     val showBottomBar = currentRoute in bottomBarRoutes
+
+    LaunchedEffect(currentRoute) {
+        SecureLogger.d(TAG, "Navigation: $currentRoute, showBottomBar: $showBottomBar")
+    }
 
     Scaffold(
         bottomBar = { if (showBottomBar) BottomNavBar(navController) }
@@ -87,8 +101,10 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
             modifier = Modifier.padding(padding)
         ) {
             composable(Screen.Onboarding.route) {
+                SecureLogger.d(TAG, "Navigating to Onboarding")
                 OnboardingScreen(
                     onFinished = {
+                        SecureLogger.d(TAG, "Onboarding finished, navigating to Home")
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Onboarding.route) { inclusive = true }
                         }
@@ -97,17 +113,32 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
             }
 
             composable(Screen.Home.route) {
+                SecureLogger.d(TAG, "Navigating to Home")
                 HomeScreen(
-                    onAddTransaction = { navController.navigate(Screen.AddTransaction.route) },
-                    onEditTransaction = { id -> navController.navigate(Screen.EditTransaction.createRoute(id)) },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                    onAddTransaction = {
+                        SecureLogger.d(TAG, "User navigating to AddTransaction")
+                        navController.navigate(Screen.AddTransaction.route)
+                    },
+                    onEditTransaction = { id ->
+                        SecureLogger.d(TAG, "User navigating to EditTransaction for id=$id")
+                        navController.navigate(Screen.EditTransaction.createRoute(id))
+                    },
+                    onNavigateToSettings = {
+                        SecureLogger.d(TAG, "User navigating to Settings")
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    onNavigateToProfile = {
+                        SecureLogger.d(TAG, "User navigating to Profile")
+                        navController.navigate(Screen.Profile.route)
+                    }
                 )
             }
 
             composable(Screen.Stats.route) {
+                SecureLogger.d(TAG, "Navigating to Stats")
                 StatsScreen(
                     onNavigateToCategory = { categoryId, from, to, type ->
+                        SecureLogger.d(TAG, "User navigating to CategoryDetail for categoryId=$categoryId")
                         navController.navigate(
                             Screen.CategoryDetail.createRoute(
                                 categoryId = categoryId,
@@ -117,12 +148,19 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                             )
                         )
                     },
-                    onNavigateToInsights = { navController.navigate(Screen.Insights.route) }
+                    onNavigateToInsights = {
+                        SecureLogger.d(TAG, "User navigating to Insights")
+                        navController.navigate(Screen.Insights.route)
+                    }
                 )
             }
 
             composable(Screen.Insights.route) {
-                InsightsScreen(onBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to Insights")
+                InsightsScreen(onBack = {
+                    SecureLogger.d(TAG, "User navigating back from Insights")
+                    navController.popBackStack()
+                })
             }
 
             composable(
@@ -135,56 +173,101 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 )
             ) { backStackEntry ->
                 val categoryName = backStackEntry.arguments?.getString("type") ?: ""
+                SecureLogger.d(TAG, "Navigating to CategoryDetail: $categoryName")
                 CategoryDetailScreen(
                     categoryName = categoryName,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = {
+                        SecureLogger.d(TAG, "User navigating back from CategoryDetail")
+                        navController.popBackStack()
+                    }
                 )
             }
 
-            composable(Screen.Yearly.route) { YearlyScreen() }
+            composable(Screen.Yearly.route) {
+                SecureLogger.d(TAG, "Navigating to Yearly")
+                YearlyScreen()
+            }
 
             composable(Screen.Settings.route) {
+                SecureLogger.d(TAG, "Navigating to Settings")
                 SettingsScreen(
-                    onBack = { navController.popBackStack() },
-                    onNavigateToCategories = { navController.navigate(Screen.Categories.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
-                    onNavigateToAbout = { navController.navigate(Screen.About.route) }
+                    onBack = {
+                        SecureLogger.d(TAG, "User navigating back from Settings")
+                        navController.popBackStack()
+                    },
+                    onNavigateToCategories = {
+                        SecureLogger.d(TAG, "User navigating to Categories from Settings")
+                        navController.navigate(Screen.Categories.route)
+                    },
+                    onNavigateToProfile = {
+                        SecureLogger.d(TAG, "User navigating to Profile from Settings")
+                        navController.navigate(Screen.Profile.route)
+                    },
+                    onNavigateToAbout = {
+                        SecureLogger.d(TAG, "User navigating to About from Settings")
+                        navController.navigate(Screen.About.route)
+                    }
                 )
             }
 
             composable(Screen.Profile.route) {
-                ProfileScreen(onBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to Profile")
+                ProfileScreen(onBack = {
+                    SecureLogger.d(TAG, "User navigating back from Profile")
+                    navController.popBackStack()
+                })
             }
 
             composable(Screen.About.route) {
-                AboutScreen(onBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to About")
+                AboutScreen(onBack = {
+                    SecureLogger.d(TAG, "User navigating back from About")
+                    navController.popBackStack()
+                })
             }
 
             composable(Screen.Categories.route) {
+                SecureLogger.d(TAG, "Navigating to Categories")
                 CategoryScreen(
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = {
+                        SecureLogger.d(TAG, "User navigating back from Categories")
+                        navController.popBackStack()
+                    },
                     onNavigateToSubCategories = { catId ->
+                        SecureLogger.d(TAG, "User navigating to SubCategories for catId=$catId")
                         navController.navigate(Screen.SubCategories.createRoute(catId))
                     }
                 )
             }
 
             composable(Screen.AddTransaction.route) {
-                TransactionFormScreen(onNavigateBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to AddTransaction")
+                TransactionFormScreen(onNavigateBack = {
+                    SecureLogger.d(TAG, "User navigating back from AddTransaction")
+                    navController.popBackStack()
+                })
             }
 
             composable(
                 route = Screen.EditTransaction.route,
                 arguments = listOf(navArgument("transactionId") { this.type = NavType.LongType })
             ) {
-                TransactionFormScreen(onNavigateBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to EditTransaction")
+                TransactionFormScreen(onNavigateBack = {
+                    SecureLogger.d(TAG, "User navigating back from EditTransaction")
+                    navController.popBackStack()
+                })
             }
 
             composable(
                 route = Screen.SubCategories.route,
                 arguments = listOf(navArgument("categoryId") { this.type = NavType.LongType })
             ) {
-                SubCategoryScreen(onNavigateBack = { navController.popBackStack() })
+                SecureLogger.d(TAG, "Navigating to SubCategories")
+                SubCategoryScreen(onNavigateBack = {
+                    SecureLogger.d(TAG, "User navigating back from SubCategories")
+                    navController.popBackStack()
+                })
             }
         }
     }

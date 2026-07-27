@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.theme.ExpenseClay
@@ -42,6 +43,8 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
+
+private const val TAG = "TransactionForm"
 
 /**
  * Sections the form auto-advances through, in layout order. Completing a selection in
@@ -110,7 +113,10 @@ fun TransactionFormScreen(
     var showDatePicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isSaved) {
-        if (state.isSaved) onNavigateBack()
+        if (state.isSaved) {
+            SecureLogger.d(TAG, "Transaction saved, navigating back")
+            onNavigateBack()
+        }
     }
 
     // ── Auto-advance ────────────────────────────────────────────────────────
@@ -230,7 +236,10 @@ fun TransactionFormScreen(
                 color = Ink
             )
             TextButton(
-                onClick = viewModel::save,
+                onClick = {
+                    SecureLogger.d(TAG, "User clicked Save button: isValid=${state.isValid}")
+                    viewModel.save()
+                },
                 enabled = state.isValid && !state.isLoading && !showCalc
             ) {
                 if (state.isLoading) CircularProgressIndicator(Modifier.size(16.dp))
@@ -277,6 +286,7 @@ fun TransactionFormScreen(
                                 val active = state.type == type
                                 TextButton(
                                     onClick = {
+                                        SecureLogger.d(TAG, "User clicked type toggle: $type")
                                         viewModel.onTypeChange(type)
                                         // Type sits above the amount, so the natural next
                                         // step is entering the amount, not the date.
@@ -357,6 +367,7 @@ fun TransactionFormScreen(
                             ChipButton(
                                 active = active,
                                 onClick = {
+                                    SecureLogger.d(TAG, "User selected date: label=$label, index=$index")
                                     showNumpad = false
                                     // "Pick" advances only once the dialog is confirmed.
                                     if (index == 3) showDatePicker = true
@@ -406,6 +417,7 @@ fun TransactionFormScreen(
                                 val active = cat.id == state.categoryId
                                 val catColor = parseCatColor(cat.colorHex)
                                 CategoryChip(cat = cat, catColor = catColor, active = active) {
+                                    SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
                                     viewModel.onCategoryChange(cat.id)
                                     advanceTo(FormSection.SubCategory)
                                 }
@@ -424,11 +436,13 @@ fun TransactionFormScreen(
                             // None option
                             val noneActive = state.subCategoryId == null
                             SubChip(label = "None", active = noneActive) {
+                                SecureLogger.d(TAG, "User selected: None (no sub-category)")
                                 viewModel.onSubCategoryChange(null)
                                 advanceTo(FormSection.Note)
                             }
                             state.subCategories.forEach { sub ->
                                 SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
+                                    SecureLogger.d(TAG, "User selected sub-category: name=${sub.name}, id=${sub.id}")
                                     viewModel.onSubCategoryChange(sub.id)
                                     advanceTo(FormSection.Note)
                                 }
