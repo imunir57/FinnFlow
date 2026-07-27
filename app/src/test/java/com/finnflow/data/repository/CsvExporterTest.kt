@@ -96,6 +96,44 @@ class CsvExporterTest {
     }
 
     @Test
+    fun toCsv_noteStartingWithFormulaCharacter_isNeutralized() {
+        val tx = Transaction(
+            id = 5L,
+            type = TransactionType.EXPENSE,
+            amount = 1.0,
+            date = LocalDate.of(2024, 8, 1),
+            categoryId = 1L,
+            note = "=HYPERLINK(\"http://evil.example\",\"click\")"
+        )
+
+        val csv = listOf(tx).toCsv(categoryNameOf, subCategoryNameOf)
+
+        // The leading single quote defuses the formula; the cell is still RFC 4180-quoted
+        // because it contains commas and double quotes.
+        val expected = "date,type,category,subcategory,amount,note\r\n" +
+            "2024-08-01,EXPENSE,Food,,1.0," +
+            "\"'=HYPERLINK(\"\"http://evil.example\"\",\"\"click\"\")\""
+        assertEquals(expected, csv)
+    }
+
+    @Test
+    fun toCsv_noteStartingWithPlusMinusOrAt_isNeutralized() {
+        fun noteOf(note: String): String {
+            val tx = Transaction(
+                id = 6L, type = TransactionType.EXPENSE, amount = 1.0,
+                date = LocalDate.of(2024, 8, 2), categoryId = 1L, note = note
+            )
+            return listOf(tx).toCsv(categoryNameOf, subCategoryNameOf).split("\r\n")[1]
+        }
+
+        assertEquals("2024-08-02,EXPENSE,Food,,1.0,'+1234", noteOf("+1234"))
+        assertEquals("2024-08-02,EXPENSE,Food,,1.0,'-cmd", noteOf("-cmd"))
+        assertEquals("2024-08-02,EXPENSE,Food,,1.0,'@user", noteOf("@user"))
+        // Formula characters mid-string are untouched.
+        assertEquals("2024-08-02,EXPENSE,Food,,1.0,a=b", noteOf("a=b"))
+    }
+
+    @Test
     fun toCsv_multipleTransactions_producesOneRowEach() {
         val tx1 = Transaction(
             id = 1L, type = TransactionType.EXPENSE, amount = 10.0,

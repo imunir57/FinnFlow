@@ -30,7 +30,9 @@ MVVM + Clean Architecture, single-module Android app (`com.finnflow`).
 **Key constraints:**
 - Min SDK 26, Target SDK / compile SDK 35, Java 17, Kotlin 2.0.21, AGP 8.5.2
 - KSP (not kapt) for Hilt and Room annotation processing
-- Room schema `version = 2`, `fallbackToDestructiveMigration()` — schema changes wipe data in dev builds
+- Room schema `version = 2`, no destructive-migration fallback — every schema change must bump the
+  version and register a `Migration` in `AppDatabase.MIGRATIONS` (schemas exported to `app/schemas`),
+  with a `MigrationTestHelper` test under `src/androidTest`
 - `fromAccountId`/`toAccountId` on `transactions` table reserved (null) for future accounts feature
 - Packaging exclusions for `META-INF/LICENSE.md`, `LICENSE-notice.md`, `NOTICE.md` (MockK conflict)
 - `buildConfig = true`; release build is minified via ProGuard

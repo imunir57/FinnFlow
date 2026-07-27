@@ -3,6 +3,7 @@ package com.finnflow.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import com.finnflow.data.db.dao.CategoryDao
 import com.finnflow.data.db.dao.TransactionDao
 import com.finnflow.data.db.entity.CategoryEntity
@@ -25,5 +26,14 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "money_manager.db"
+
+        /**
+         * Every schema change must bump [Database.version] and register a Migration here,
+         * written against the schema JSONs exported to app/schemas. There is deliberately
+         * no fallbackToDestructiveMigration(): a missing migration must fail loudly in
+         * testing rather than silently wiping user data in production. Cover each new
+         * migration with a MigrationTestHelper test under src/androidTest.
+         */
+        val MIGRATIONS: Array<Migration> = emptyArray()
     }
 }

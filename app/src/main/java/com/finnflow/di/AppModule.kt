@@ -32,7 +32,7 @@ object DatabaseModule {
         dbProvider: Provider<AppDatabase>
     ): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
-            .fallbackToDestructiveMigration()
+            .addMigrations(*AppDatabase.MIGRATIONS)
             .addCallback(DatabaseSeeder(dbProvider))
             .build()
 

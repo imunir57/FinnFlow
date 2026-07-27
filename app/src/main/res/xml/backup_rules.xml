@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup config for API 30 and below (API 31+ uses data_extraction_rules.xml).
+     Only the user's own data is backed up: the Room database and the DataStore
+     preferences. Everything else (WorkManager's internal DB, caches) is intentionally
+     left out — restoring scheduler state onto a fresh install causes stale work. -->
+<full-backup-content>
+    <!-- Room runs in WAL mode: recent writes can sit in the -wal file, so it must be
+         backed up alongside the main database file. -->
+    <include domain="database" path="money_manager.db" />
+    <include domain="database" path="money_manager.db-wal" />
+    <include domain="database" path="money_manager.db-shm" />
+    <include domain="file" path="datastore/" />
+</full-backup-content>
