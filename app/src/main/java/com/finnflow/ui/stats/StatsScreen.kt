@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -25,6 +24,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,14 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.TransactionType
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
-import com.finnflow.ui.theme.WarmSurface
+import com.finnflow.ui.theme.FinnFlowTheme
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -47,12 +40,6 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
 import kotlin.math.sin
-
-private val sliceColors = listOf(
-    Color(0xFFE24B4A), Color(0xFF378ADD), Color(0xFF1D9E75),
-    Color(0xFFEF9F27), Color(0xFF7F77DD), Color(0xFFD4537E),
-    Color(0xFF639922), Color(0xFF888780)
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +49,7 @@ fun StatsScreen(
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val sliceColors = FinnFlowTheme.colors.chartSlices
     var showPicker     by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker   by remember { mutableStateOf(false) }
@@ -127,7 +115,7 @@ fun StatsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // ── Title bar ─────────────────────────────────────────────────────
         Row(
@@ -140,11 +128,15 @@ fun StatsScreen(
                 "Statistics",
                 fontFamily = FontFamily.Serif,
                 fontSize = 26.sp,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, "Menu", tint = InkMedium)
+                Icon(
+                    Icons.Default.MoreVert,
+                    "Menu",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -199,15 +191,28 @@ fun StatsScreen(
                 item { InsightsEntryCard(onClick = onNavigateToInsights) }
             }
             item {
-                HorizontalDivider(color = Rule, modifier = Modifier.padding(top = 4.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Category", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
-                    Text("Amount",   fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
+                    Text(
+                        "Category",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        "Amount",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
             if (state.activeSummary.isEmpty()) {
@@ -216,7 +221,11 @@ fun StatsScreen(
                         modifier = Modifier.fillMaxWidth().padding(40.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No data for selected period", fontSize = 14.sp, color = InkFaint)
+                        Text(
+                            "No data for selected period",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             } else {
@@ -226,10 +235,6 @@ fun StatsScreen(
                     CategoryListRow(
                         summary = summary,
                         color   = color,
-                        percent = state.percentOf(summary.totalAmount).toFloat() /
-                                  100f * state.totalAmount.let {
-                                      if (it > 0) (summary.totalAmount / it * 100f).toFloat() else 0f
-                                  }.let { 1f }, // keep raw percent for bar
                         percentInt = state.percentOf(summary.totalAmount),
                         onClick = {
                             onNavigateToCategory(summary.categoryId, state.from, state.to, state.selectedType)
@@ -259,16 +264,17 @@ private fun RangeTabsRow(period: StatsPeriod, onPeriodChange: (StatsPeriod) -> U
                 .padding(horizontal = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(22.dp)
         ) {
+            val activeColor = MaterialTheme.colorScheme.onSurface
+            val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant
             StatsPeriod.entries.forEach { p ->
                 val active = period == p
-                val inkColor = Ink
                 Box(
                     modifier = Modifier
                         .clickable { onPeriodChange(p) }
                         .padding(top = 14.dp, bottom = 12.dp)
                         .drawBehind {
                             if (active) drawLine(
-                                color = inkColor,
+                                color = activeColor,
                                 start = Offset(0f, size.height + 1.dp.toPx()),
                                 end   = Offset(size.width, size.height + 1.dp.toPx()),
                                 strokeWidth = 2.dp.toPx()
@@ -279,12 +285,12 @@ private fun RangeTabsRow(period: StatsPeriod, onPeriodChange: (StatsPeriod) -> U
                         p.label,
                         fontSize = 13.sp,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (active) Ink else InkFaint
+                        color = if (active) activeColor else inactiveColor
                     )
                 }
             }
         }
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -327,12 +333,18 @@ private fun RangeDisplayRow(
             ) {
                 Icon(
                     Icons.Default.ArrowBack, "Previous",
-                    tint = if (canNavigate) InkMedium else Rule,
+                    tint = if (canNavigate) MaterialTheme.colorScheme.onSurfaceVariant
+                           else FinnFlowTheme.colors.disabledText,
                     modifier = Modifier.size(16.dp)
                 )
             }
             Spacer(Modifier.width(4.dp))
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+            Text(
+                label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             Spacer(Modifier.width(4.dp))
             IconButton(
                 onClick = onNext,
@@ -341,7 +353,8 @@ private fun RangeDisplayRow(
             ) {
                 Icon(
                     Icons.Default.ArrowForward, "Next",
-                    tint = if (canNavigate) InkMedium else Rule,
+                    tint = if (canNavigate) MaterialTheme.colorScheme.onSurfaceVariant
+                           else FinnFlowTheme.colors.disabledText,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -351,11 +364,16 @@ private fun RangeDisplayRow(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .border(1.dp, Rule, RoundedCornerShape(999.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
                 .clickable(onClick = onPick)
                 .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
-            Text("Pick", fontSize = 11.sp, color = InkMedium, letterSpacing = 0.3.sp)
+            Text(
+                "Pick",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 0.3.sp
+            )
         }
     }
 }
@@ -367,7 +385,7 @@ private fun TypeToggle(selectedType: TransactionType, onTypeChange: (Transaction
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(WarmSurface)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(3.dp)
     ) {
         Row {
@@ -376,14 +394,17 @@ private fun TypeToggle(selectedType: TransactionType, onTypeChange: (Transaction
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (active) Ink else Color.Transparent)
+                        .background(
+                            if (active) MaterialTheme.colorScheme.primary else Color.Transparent
+                        )
                         .clickable { onTypeChange(type) }
                         .padding(horizontal = 18.dp, vertical = 8.dp)
                 ) {
                     Text(
                         label,
                         fontSize = 13.sp,
-                        color = if (active) WarmPaper else InkMedium,
+                        color = if (active) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
@@ -403,6 +424,9 @@ private fun DonutChartSection(
 ) {
     val strokeWidth = 80f
     val chartSize   = 220.dp
+    val ffColors    = FinnFlowTheme.colors
+    val sliceColors = ffColors.chartSlices
+    val emptyTrack  = MaterialTheme.colorScheme.outlineVariant
 
     Box(
         modifier = Modifier
@@ -421,17 +445,18 @@ private fun DonutChartSection(
 
             if (summaries.isEmpty()) {
                 drawArc(
-                    color = Color.LightGray.copy(alpha = 0.3f),
+                    color = emptyTrack,
                     startAngle = 0f, sweepAngle = 360f, useCenter = false,
                     topLeft = topLeft, size = arcSize,
                     style = Stroke(width = strokeWidth)
                 )
             } else {
                 summaries.forEachIndexed { index, summary ->
+                    val sliceColor = sliceColors[index % sliceColors.size]
                     val sweep = if (totalAmount > 0)
                         (summary.totalAmount / totalAmount * 360f).toFloat() else 0f
                     drawArc(
-                        color = sliceColors[index % sliceColors.size],
+                        color = sliceColor,
                         startAngle = startAngle, sweepAngle = sweep - 1f, useCenter = false,
                         topLeft = topLeft, size = arcSize,
                         style = Stroke(width = strokeWidth)
@@ -444,7 +469,9 @@ private fun DonutChartSection(
                         val ly = size.height / 2 + (radius * sin(midAngle)).toFloat()
                         drawContext.canvas.nativeCanvas.apply {
                             val paint = android.graphics.Paint().apply {
-                                color = android.graphics.Color.WHITE
+                                // Dark-mode slices are lifted to be readable on near-black, so a
+                                // fixed white label would disappear on them.
+                                color = ffColors.onChartSlice(sliceColor).toArgb()
                                 textSize = if (sweep < 30f) 22f else 28f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
@@ -460,16 +487,23 @@ private fun DonutChartSection(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 label.uppercase(),
-                fontSize = 9.5.sp, letterSpacing = 0.8.sp, color = InkFaint
+                fontSize = 9.5.sp,
+                letterSpacing = 0.8.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("৳", fontSize = 11.sp, color = InkFaint, modifier = Modifier.padding(end = 2.dp))
+                Text(
+                    "৳",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 2.dp)
+                )
                 Text(
                     "%,.0f".format(totalAmount),
                     fontFamily = FontFamily.Serif,
                     fontSize = 18.sp,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -481,6 +515,7 @@ private fun DonutChartSection(
 
 @Composable
 private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> Int) {
+    val sliceColors = FinnFlowTheme.colors.chartSlices
     val chunked = summaries.chunked(2)
     Column(
         modifier = Modifier
@@ -489,7 +524,12 @@ private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> I
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         chunked.forEachIndexed { rowIndex, pair ->
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // Gap between the two legend columns — without it the left column's percentage
+            // collides with the right column's swatch and clips its label.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 pair.forEachIndexed { colIndex, summary ->
                     val globalIndex = rowIndex * 2 + colIndex
                     val color = sliceColors[globalIndex % sliceColors.size]
@@ -502,13 +542,13 @@ private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> I
                         Text(
                             summary.categoryName,
                             fontSize = 11.5.sp,
-                            color = InkMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
                             "${percentOf(summary.totalAmount)}%",
                             fontSize = 11.sp,
-                            color = InkFaint
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -527,8 +567,8 @@ private fun InsightsEntryCard(onClick: () -> Unit) {
             .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(WarmCard)
-            .border(1.dp, Rule, RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -538,16 +578,35 @@ private fun InsightsEntryCard(onClick: () -> Unit) {
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(IncomeGreen.copy(alpha = 0.14f)),
+                .background(FinnFlowTheme.colors.income.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.TrendingUp, contentDescription = null, tint = IncomeGreen, modifier = Modifier.size(17.dp))
+            Icon(
+                Icons.Default.TrendingUp,
+                contentDescription = null,
+                tint = FinnFlowTheme.colors.income,
+                modifier = Modifier.size(17.dp)
+            )
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text("View insights", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = Ink)
-            Text("Trends, highlights & spending patterns", fontSize = 11.5.sp, color = InkFaint)
+            Text(
+                "View insights",
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                "Trends, highlights & spending patterns",
+                fontSize = 11.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = InkFaint, modifier = Modifier.size(16.dp))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
 
@@ -557,7 +616,6 @@ private fun InsightsEntryCard(onClick: () -> Unit) {
 private fun CategoryListRow(
     summary: CategorySummary,
     color: Color,
-    percent: Float,
     percentInt: Int,
     onClick: () -> Unit
 ) {
@@ -575,18 +633,23 @@ private fun CategoryListRow(
             )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(summary.categoryName, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = Ink)
+                Text(
+                    summary.categoryName,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     "${summary.transactionCount} txn${if (summary.transactionCount != 1) "s" else ""} · $percentInt%",
                     fontSize = 11.5.sp,
-                    color = InkFaint
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Text(
                 "৳ ${"%,.0f".format(summary.totalAmount)}",
                 fontSize = 14.5.sp,
                 fontWeight = FontWeight.Medium,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -595,7 +658,7 @@ private fun CategoryListRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(3.dp)
-                .background(Rule, RoundedCornerShape(2.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(2.dp))
         ) {
             Box(
                 modifier = Modifier
@@ -604,6 +667,9 @@ private fun CategoryListRow(
                     .background(color, RoundedCornerShape(2.dp))
             )
         }
-        HorizontalDivider(color = Rule, modifier = Modifier.padding(top = 12.dp))
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.padding(top = 12.dp)
+        )
     }
 }

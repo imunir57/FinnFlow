@@ -37,14 +37,7 @@ import com.finnflow.data.profile.UserProfile
 import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.components.OptionPickerSheet
 import com.finnflow.ui.components.PickerOption
-import com.finnflow.ui.theme.ExpenseClay
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
+import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
 import java.time.LocalDate
@@ -53,15 +46,6 @@ import java.time.format.DateTimeFormatter
 
 private const val TAG = "SettingsScreen"
 
-private val IconCategories   = Color(0xFF7A5C3E)
-private val IconCurrency     = Color(0xFF3E4A8A)
-private val IconNotify       = Color(0xFFB5456E)
-private val IconBackup       = Color(0xFF3A6EA5)
-private val IconRestore      = Color(0xFF2E8B94)
-private val IconExport       = Color(0xFF7A4FA0)
-private val IconAppearance   = Color(0xFFD18842)
-private val IconAppLock      = Color(0xFF556B74)
-private val IconAbout        = Color(0xFF6E8A4A)
 
 @Composable
 fun SettingsScreen(
@@ -165,14 +149,14 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        containerColor = WarmPaper,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Row(
             modifier = Modifier
@@ -181,13 +165,13 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = InkMedium)
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 "Settings",
                 fontFamily = FontFamily.Serif,
                 fontSize = 26.sp,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -199,7 +183,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.Category,
-                    iconColor = IconCategories,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentCategories),
                     label = "Categories",
                     subtitle = "Add, edit, reorder categories",
                     onClick = {
@@ -211,14 +195,14 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.Payments,
-                    iconColor = IconCurrency,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentCurrency),
                     label = "Currency",
                     right = {
                         Text(
                             profile.currencySymbol,
                             fontFamily = FontFamily.Serif,
                             fontSize = 18.sp,
-                            color = InkMedium
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     onClick = {
@@ -230,7 +214,7 @@ fun SettingsScreen(
             item {
                 ToggleRow(
                     icon = Icons.Default.Notifications,
-                    iconColor = IconNotify,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentNotify),
                     label = "Notifications",
                     subtitle = "Daily reminder · 9:00 PM",
                     checked = profile.notificationsEnabled,
@@ -250,7 +234,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.CloudUpload,
-                    iconColor = IconBackup,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentBackup),
                     label = "Backup",
                     subtitle = formatBackupTimestamp(profile.lastBackupTimestamp),
                     onClick = {
@@ -262,7 +246,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.CloudDownload,
-                    iconColor = IconRestore,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentRestore),
                     label = "Restore",
                     subtitle = "From a previous backup file",
                     onClick = {
@@ -274,7 +258,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.Share,
-                    iconColor = IconExport,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentExport),
                     label = "Export to CSV",
                     subtitle = "Share your transactions as a spreadsheet",
                     onClick = {
@@ -288,10 +272,10 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.Palette,
-                    iconColor = IconAppearance,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentAppearance),
                     label = "Appearance",
                     right = {
-                        Text(themeModeLabel(profile.themeMode), fontSize = 12.5.sp, color = InkMedium)
+                        Text(themeModeLabel(profile.themeMode), fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     },
                     onClick = {
                         SecureLogger.d(TAG, "User opened appearance/theme picker")
@@ -302,7 +286,7 @@ fun SettingsScreen(
             item {
                 ToggleRow(
                     icon = Icons.Default.Lock,
-                    iconColor = IconAppLock,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentAppLock),
                     label = "App Lock",
                     subtitle = appLockMessage ?: "Require fingerprint to open",
                     checked = profile.appLockEnabled,
@@ -315,7 +299,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     icon = Icons.Default.Info,
-                    iconColor = IconAbout,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentAbout),
                     label = "About FinnFlow",
                     subtitle = "Version ${com.finnflow.BuildConfig.VERSION_NAME} · Build ${com.finnflow.BuildConfig.VERSION_CODE}",
                     onClick = {
@@ -337,8 +321,8 @@ fun SettingsScreen(
                         .padding(horizontal = 16.dp)
                         .padding(top = 20.dp, bottom = 8.dp),
                     shape = RoundedCornerShape(14.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Rule),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseClay)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FinnFlowTheme.colors.expense)
                 ) {
                     Text(
                         "Sign out",
@@ -354,7 +338,7 @@ fun SettingsScreen(
                     fontSize = 14.sp,
                     fontFamily = FontFamily.Serif,
                     fontStyle = FontStyle.Italic,
-                    color = InkFaint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -426,8 +410,8 @@ private fun ProfileCard(profile: UserProfile, onClick: () -> Unit) {
             .padding(horizontal = 16.dp)
             .padding(top = 6.dp, bottom = 18.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(WarmCard)
-            .border(1.dp, Rule, RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -437,14 +421,14 @@ private fun ProfileCard(profile: UserProfile, onClick: () -> Unit) {
             modifier = Modifier
                 .size(50.dp)
                 .clip(CircleShape)
-                .background(IncomeGreen),
+                .background(MaterialTheme.colorScheme.secondary),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 profile.initials.ifBlank { "?" },
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSecondary
             )
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -452,15 +436,15 @@ private fun ProfileCard(profile: UserProfile, onClick: () -> Unit) {
                 profile.displayName.ifBlank { "Your Name" },
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.height(2.dp))
-            Text("Tap to edit profile", fontSize = 12.sp, color = InkMedium)
+            Text("Tap to edit profile", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Icon(
             Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = InkMedium,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -473,7 +457,7 @@ private fun SectionHeader(title: String) {
         fontSize = 10.5.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.2.sp,
-        color = InkMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 6.dp)
     )
 }
@@ -499,10 +483,10 @@ private fun SettingsRow(
     ) {
         IconBadge(icon = icon, color = iconColor)
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
             if (subtitle != null) {
                 Spacer(Modifier.height(1.dp))
-                Text(subtitle, fontSize = 11.5.sp, color = InkMedium)
+                Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         when {
@@ -510,7 +494,7 @@ private fun SettingsRow(
             onClick != null -> Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = InkMedium,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -535,20 +519,20 @@ private fun ToggleRow(
     ) {
         IconBadge(icon = icon, color = iconColor)
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
             if (subtitle != null) {
                 Spacer(Modifier.height(1.dp))
-                Text(subtitle, fontSize = 11.5.sp, color = InkMedium)
+                Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = WarmPaper,
-                checkedTrackColor = Ink,
-                uncheckedThumbColor = WarmPaper,
-                uncheckedTrackColor = Rule
+                checkedThumbColor = MaterialTheme.colorScheme.background,
+                checkedTrackColor = MaterialTheme.colorScheme.onSurface,
+                uncheckedThumbColor = MaterialTheme.colorScheme.background,
+                uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
     }

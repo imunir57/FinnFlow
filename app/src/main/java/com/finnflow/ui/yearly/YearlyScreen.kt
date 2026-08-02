@@ -14,22 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.finnflow.ui.theme.ExpenseClay
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
+import com.finnflow.ui.theme.FinnFlowTheme
 import java.time.LocalDate
 import java.time.Month
 import java.time.format.TextStyle
@@ -54,7 +45,7 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // ── Title bar ─────────────────────────────────────────────────────
         Row(
@@ -67,11 +58,15 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 "Yearly",
                 fontFamily = FontFamily.Serif,
                 fontSize = 26.sp,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, "Menu", tint = InkMedium)
+                Icon(
+                    Icons.Default.MoreVert,
+                    "Menu",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
@@ -84,16 +79,26 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
             horizontalArrangement = Arrangement.Center
         ) {
             IconButton(onClick = viewModel::previousYear) {
-                Icon(Icons.Default.ArrowBack, "Previous year", tint = InkMedium, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Default.ArrowBack,
+                    "Previous year",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
             }
             Text(
                 state.year.toString(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink
+                color = MaterialTheme.colorScheme.onBackground
             )
             IconButton(onClick = viewModel::nextYear) {
-                Icon(Icons.Default.ArrowForward, "Next year", tint = InkMedium, modifier = Modifier.size(18.dp))
+                Icon(
+                    Icons.Default.ArrowForward,
+                    "Next year",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 
@@ -103,23 +108,13 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.linearGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color(0xFF1A2820),
-                            0.4f to Color(0xFF1E1916),
-                            1.0f to Color(0xFF241410)
-                        ),
-                        start = Offset(0f, 0f),
-                        end   = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
+                .background(FinnFlowTheme.colors.heroGradient)
         ) {
             Text(
                 "৳",
                 fontSize = 160.sp,
                 fontFamily = FontFamily.Serif,
-                color = Color.White.copy(alpha = 0.05f),
+                color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 12.dp, y = (-28).dp)
@@ -129,7 +124,7 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                     "NET BALANCE",
                     fontSize = 10.sp,
                     letterSpacing = 1.sp,
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = FinnFlowTheme.colors.heroOnSurfaceVariant
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.Top) {
@@ -137,7 +132,7 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                         "৳",
                         fontSize = 24.sp,
                         fontFamily = FontFamily.Serif,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = FinnFlowTheme.colors.heroOnSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp, end = 4.dp)
                     )
                     Text(
@@ -145,16 +140,28 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                         fontSize = 52.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Normal,
-                        color = Color.White,
+                        color = FinnFlowTheme.colors.heroOnSurface,
                         lineHeight = 52.sp
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
+                HorizontalDivider(
+                    color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.12f)
+                )
                 Spacer(Modifier.height(14.dp))
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    HeroStat("INCOME",  state.totalIncome,  Color(0xFF78C898), Modifier.weight(1f))
-                    HeroStat("EXPENSE", state.totalExpense, Color(0xFFDC9070), Modifier.weight(1f))
+                    HeroStat(
+                        "INCOME",
+                        state.totalIncome,
+                        FinnFlowTheme.colors.heroIncome,
+                        Modifier.weight(1f)
+                    )
+                    HeroStat(
+                        "EXPENSE",
+                        state.totalExpense,
+                        FinnFlowTheme.colors.heroExpense,
+                        Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -177,10 +184,20 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 .padding(horizontal = 18.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Month", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
-            Text("In · Out · Net", fontSize = 10.sp, color = InkFaint, letterSpacing = 1.sp)
+            Text(
+                "Month",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 1.sp
+            )
+            Text(
+                "In · Out · Net",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 1.sp
+            )
         }
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(12) { index ->
@@ -212,14 +229,19 @@ private fun HeroStat(label: String, value: Double, color: Color, modifier: Modif
                     .background(color)
             )
             Spacer(Modifier.width(6.dp))
-            Text(label, fontSize = 10.sp, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.6f))
+            Text(
+                label,
+                fontSize = 10.sp,
+                letterSpacing = 1.sp,
+                color = FinnFlowTheme.colors.heroOnSurfaceVariant
+            )
         }
         Spacer(Modifier.height(4.dp))
         Text(
             "৳ ${fmtAmount(value)}",
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White
+            color = FinnFlowTheme.colors.heroOnSurface
         )
     }
 }
@@ -231,19 +253,24 @@ private fun AvgStrip(avgIn: Double, avgOut: Double) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .padding(bottom = 12.dp)
-            .background(WarmCard, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(16.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        AvgCell(label = "Avg / month in", value = avgIn, color = IncomeGreen)
-        AvgCell(label = "Avg / month out", value = avgOut, color = ExpenseClay)
+        AvgCell(label = "Avg / month in", value = avgIn, color = FinnFlowTheme.colors.income)
+        AvgCell(label = "Avg / month out", value = avgOut, color = FinnFlowTheme.colors.expense)
     }
 }
 
 @Composable
 private fun AvgCell(label: String, value: Double, color: Color) {
     Column {
-        Text(label, fontSize = 10.sp, letterSpacing = 0.8.sp, color = InkFaint)
+        Text(
+            label,
+            fontSize = 10.sp,
+            letterSpacing = 0.8.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -278,7 +305,9 @@ private fun MonthRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isCurrent) WarmCard else Color.Transparent)
+            .background(
+                if (isCurrent) FinnFlowTheme.colors.selectedRow else Color.Transparent
+            )
             .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -290,13 +319,18 @@ private fun MonthRow(
                     monthName,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (hasData) Ink else InkFaint
+                    // Empty months are decorative filler, so the faint role is legitimate here.
+                    color = if (hasData) MaterialTheme.colorScheme.onSurface
+                            else FinnFlowTheme.colors.inkFaint
                 )
                 if (isCurrent) {
                     Spacer(Modifier.width(6.dp))
                     Box(
                         modifier = Modifier
-                            .background(Ink, RoundedCornerShape(4.dp))
+                            .background(
+                                MaterialTheme.colorScheme.inverseSurface,
+                                RoundedCornerShape(4.dp)
+                            )
                             .padding(horizontal = 5.dp, vertical = 1.dp)
                     ) {
                         Text(
@@ -304,7 +338,7 @@ private fun MonthRow(
                             fontSize = 9.sp,
                             letterSpacing = 0.6.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = WarmPaper
+                            color = MaterialTheme.colorScheme.inverseOnSurface
                         )
                     }
                 }
@@ -314,17 +348,26 @@ private fun MonthRow(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("+${fmtAmount(income)}", fontSize = 11.5.sp, color = IncomeGreen)
-                    Text("-${fmtAmount(expense)}", fontSize = 11.5.sp, color = ExpenseClay)
+                    Text(
+                        "+${fmtAmount(income)}",
+                        fontSize = 11.5.sp,
+                        color = FinnFlowTheme.colors.income
+                    )
+                    Text(
+                        "-${fmtAmount(expense)}",
+                        fontSize = 11.5.sp,
+                        color = FinnFlowTheme.colors.expense
+                    )
                     Text(
                         (if (balance >= 0) "+" else "") + fmtAmount(balance),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (balance >= 0) IncomeGreen else ExpenseClay
+                        color = if (balance >= 0) FinnFlowTheme.colors.income
+                                else FinnFlowTheme.colors.expense
                     )
                 }
             } else {
-                Text("—", fontSize = 13.sp, color = InkFaint)
+                Text("—", fontSize = 13.sp, color = FinnFlowTheme.colors.inkFaint)
             }
         }
 
@@ -334,13 +377,19 @@ private fun MonthRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(Rule, RoundedCornerShape(2.dp))
+                    .background(
+                        MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(2.dp)
+                    )
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth((income / maxVal).toFloat().coerceIn(0f, 1f))
                         .height(3.dp)
-                        .background(IncomeGreen.copy(alpha = 0.7f), RoundedCornerShape(2.dp))
+                        .background(
+                            FinnFlowTheme.colors.income.copy(alpha = 0.7f),
+                            RoundedCornerShape(2.dp)
+                        )
                 )
             }
             Spacer(Modifier.height(3.dp))
@@ -348,16 +397,22 @@ private fun MonthRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .background(Rule, RoundedCornerShape(2.dp))
+                    .background(
+                        MaterialTheme.colorScheme.outlineVariant,
+                        RoundedCornerShape(2.dp)
+                    )
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth((expense / maxVal).toFloat().coerceIn(0f, 1f))
                         .height(3.dp)
-                        .background(ExpenseClay.copy(alpha = 0.7f), RoundedCornerShape(2.dp))
+                        .background(
+                            FinnFlowTheme.colors.expense.copy(alpha = 0.7f),
+                            RoundedCornerShape(2.dp)
+                        )
                 )
             }
         }
     }
-    HorizontalDivider(color = Rule)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }

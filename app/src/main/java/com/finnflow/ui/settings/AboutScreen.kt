@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,13 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finnflow.BuildConfig
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
+import com.finnflow.ui.theme.FinnFlowTheme
 
 @Composable
 fun AboutScreen(
@@ -38,7 +33,7 @@ fun AboutScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Row(
             modifier = Modifier
@@ -47,13 +42,13 @@ fun AboutScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = InkMedium)
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 "About",
                 fontFamily = FontFamily.Serif,
                 fontSize = 26.sp,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -68,13 +63,13 @@ fun AboutScreen(
                 modifier = Modifier
                     .size(76.dp)
                     .clip(CircleShape)
-                    .background(IncomeGreen),
+                    .background(MaterialTheme.colorScheme.secondary),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Default.Savings,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onSecondary,
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -86,7 +81,7 @@ fun AboutScreen(
                 fontFamily = FontFamily.Serif,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(Modifier.height(6.dp))
@@ -94,7 +89,7 @@ fun AboutScreen(
             Text(
                 "Version ${BuildConfig.VERSION_NAME} · Build ${BuildConfig.VERSION_CODE}",
                 fontSize = 13.sp,
-                color = InkMedium
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(28.dp))
@@ -104,7 +99,7 @@ fun AboutScreen(
                 fontSize = 14.sp,
                 fontFamily = FontFamily.Serif,
                 fontStyle = FontStyle.Italic,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -117,13 +112,13 @@ fun AboutScreen(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 24.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(WarmCard)
-                .border(1.dp, Rule, RoundedCornerShape(18.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
         ) {
             Text(
                 "© ${java.time.Year.now().value} FinnFlow. All rights reserved.",
                 fontSize = 11.5.sp,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()

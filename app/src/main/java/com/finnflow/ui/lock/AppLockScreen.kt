@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,9 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.WarmPaper
 
 @Composable
 fun AppLockScreen(
@@ -56,7 +54,7 @@ fun AppLockScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -64,7 +62,7 @@ fun AppLockScreen(
         Icon(
             Icons.Default.Fingerprint,
             contentDescription = null,
-            tint = Ink,
+            tint = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.height(56.dp)
         )
         Spacer(Modifier.height(16.dp))
@@ -73,18 +71,21 @@ fun AppLockScreen(
             fontFamily = FontFamily.Serif,
             fontSize = 22.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Ink
+            color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(6.dp))
         Text(
             "Authenticate to continue",
             fontSize = 13.sp,
-            color = InkMedium
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(24.dp))
         Button(
             onClick = { promptAuth() },
-            colors = ButtonDefaults.buttonColors(containerColor = Ink)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Text("Unlock")
         }

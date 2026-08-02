@@ -73,11 +73,6 @@ private val COLOR_CHOICES = listOf(
     "#3A6EA5", "#3E4A8A", "#7A4FA0", "#B5456E", "#B85A3E", "#556B74", "#8A8A8A"
 )
 
-private fun String?.toComposeColor(): Color {
-    if (isNullOrEmpty()) return InkMedium
-    return try { Color(android.graphics.Color.parseColor(this)) } catch (_: Exception) { InkMedium }
-}
-
 private fun iconFor(key: String?): ImageVector =
     if (key.isNullOrEmpty()) Icons.Default.MoreHoriz else ICON_MAP[key] ?: Icons.Default.MoreHoriz
 
@@ -108,7 +103,7 @@ fun CategoryScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
@@ -120,20 +115,20 @@ fun CategoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = InkMedium)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
                     "Categories",
                     fontFamily = FontFamily.Serif,
                     fontSize = 26.sp,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = {
                     SecureLogger.d(TAG, "User clicked Add category button (top bar)")
                     viewModel.openEditSheet(null)
                 }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add category", tint = InkMedium)
+                    Icon(Icons.Default.Add, contentDescription = "Add category", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -170,13 +165,13 @@ fun CategoryScreen(
                 Text(
                     "${state.displayItems.size} categories · drag to reorder",
                     fontSize = 10.5.sp,
-                    color = InkFaint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
                 Text(
                     "Subs",
                     fontSize = 10.5.sp,
-                    color = InkFaint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
             }
@@ -200,7 +195,7 @@ fun CategoryScreen(
                             viewModel.openEditSheet(item.category)
                         }
                     )
-                    HorizontalDivider(color = Rule)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
 
                 item {
@@ -220,14 +215,14 @@ fun CategoryScreen(
                 .padding(end = 20.dp, bottom = 20.dp)
                 .size(56.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(Ink)
+                .background(MaterialTheme.colorScheme.primary)
                 .clickable {
                     SecureLogger.d(TAG, "User clicked Add category FAB")
                     viewModel.openEditSheet(null)
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Add, contentDescription = "Add category", tint = WarmPaper)
+            Icon(Icons.Default.Add, contentDescription = "Add category", tint = MaterialTheme.colorScheme.onPrimary)
         }
     }
 
@@ -272,7 +267,7 @@ private fun CategoryTypeToggle(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(WarmSurface)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(3.dp)
     ) {
         Row {
@@ -284,7 +279,7 @@ private fun CategoryTypeToggle(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (active) Ink else Color.Transparent)
+                        .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
                         .clickable {
                             SecureLogger.d(TAG, "User changed category filter: type=$type")
                             onTypeChange(type)
@@ -294,7 +289,7 @@ private fun CategoryTypeToggle(
                     Text(
                         label,
                         fontSize = 13.sp,
-                        color      = if (active) WarmPaper else InkMedium,
+                        color      = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium
                     )
                 }
@@ -312,7 +307,7 @@ private fun CategoryRow(
     onEdit: () -> Unit
 ) {
     val cat      = item.category
-    val catColor = remember(cat.colorHex) { (cat.colorHex as? String).toComposeColor() }
+    val catColor = rememberCategoryColor(cat.colorHex as? String)
     val icon     = remember(cat.iconName)  { iconFor(cat.iconName as? String) }
 
     Row(
@@ -332,7 +327,7 @@ private fun CategoryRow(
                     modifier = Modifier
                         .width(11.dp)
                         .height(1.5.dp)
-                        .background(InkFaint)
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant)
                 )
             }
         }
@@ -359,7 +354,7 @@ private fun CategoryRow(
                 cat.name,
                 fontSize   = 14.5.sp,
                 fontWeight = FontWeight.Medium,
-                color      = Ink,
+                color      = MaterialTheme.colorScheme.onSurface,
                 maxLines   = 1,
                 overflow   = TextOverflow.Ellipsis
             )
@@ -369,7 +364,7 @@ private fun CategoryRow(
                 Text(
                     preview,
                     fontSize = 11.5.sp,
-                    color    = InkFaint,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -380,21 +375,21 @@ private fun CategoryRow(
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(999.dp))
-                .border(1.dp, Rule, RoundedCornerShape(999.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
                 .clickable(onClick = onOpenSubs)
                 .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Text(
                 "${item.subCount}",
                 fontSize   = 11.5.sp,
-                color      = InkMedium,
+                color      = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Medium
             )
         }
 
         // Edit button
         IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = InkFaint, modifier = Modifier.size(16.dp))
+            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -406,7 +401,7 @@ private fun CategoryInfoBox(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .dashedBorder(1.dp, Rule, 14.dp)
+            .dashedBorder(1.dp, MaterialTheme.colorScheme.outlineVariant, 14.dp)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -414,18 +409,18 @@ private fun CategoryInfoBox(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(Icons.Default.Info, contentDescription = null, tint = InkMedium, modifier = Modifier.size(14.dp))
+            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
             Text(
                 "About categories",
                 fontSize   = 12.5.sp,
                 fontWeight = FontWeight.SemiBold,
-                color      = InkMedium
+                color      = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         Text(
             "Categories with existing transactions can't be deleted — archive them instead so old records keep their label.",
             fontSize    = 12.5.sp,
-            color       = InkFaint,
+            color       = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight  = 18.sp
         )
     }
@@ -452,13 +447,13 @@ fun CategoryEditSheet(
     var type by remember { mutableStateOf(if (category != null) category.type else defaultType) }
 
     val sheetState   = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val previewColor = remember(colorHex) { (colorHex as? String).toComposeColor() }
+    val previewColor = rememberCategoryColor(colorHex as? String)
     val previewIcon  = remember(iconKey)  { iconFor(iconKey) }
 
     ModalBottomSheet(
         onDismissRequest  = onClose,
         sheetState        = sheetState,
-        containerColor    = WarmPaper,
+        containerColor    = MaterialTheme.colorScheme.background,
         shape             = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         dragHandle = {
             Box(
@@ -467,7 +462,7 @@ fun CategoryEditSheet(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Rule)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
         }
     ) {
@@ -500,12 +495,12 @@ fun CategoryEditSheet(
                         if (category != null) "Edit category" else "New category",
                         fontFamily = FontFamily.Serif,
                         fontSize   = 20.sp,
-                        color      = Ink
+                        color      = MaterialTheme.colorScheme.onSurface
                     )
-                    Text("Pick an icon and a colour", fontSize = 11.5.sp, color = InkFaint)
+                    Text("Pick an icon and a colour", fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = InkMedium)
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -515,7 +510,7 @@ fun CategoryEditSheet(
             OutlinedTextField(
                 value          = name,
                 onValueChange  = { name = it },
-                placeholder    = { Text("e.g. Subscriptions", color = InkFaint) },
+                placeholder    = { Text("e.g. Subscriptions", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 singleLine     = true,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
@@ -526,13 +521,13 @@ fun CategoryEditSheet(
                 }),
                 shape  = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor    = Ink,
-                    unfocusedBorderColor  = Rule,
-                    focusedTextColor      = Ink,
-                    unfocusedTextColor    = Ink,
-                    cursorColor           = Ink,
-                    unfocusedContainerColor = WarmCard,
-                    focusedContainerColor   = WarmCard
+                    focusedBorderColor    = MaterialTheme.colorScheme.onSurface,
+                    unfocusedBorderColor  = MaterialTheme.colorScheme.outlineVariant,
+                    focusedTextColor      = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor    = MaterialTheme.colorScheme.onSurface,
+                    cursorColor           = MaterialTheme.colorScheme.onSurface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    focusedContainerColor   = MaterialTheme.colorScheme.surfaceContainer
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -548,15 +543,15 @@ fun CategoryEditSheet(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(if (active) Ink else WarmCard)
-                                .border(1.dp, if (active) Ink else Rule, RoundedCornerShape(999.dp))
+                                .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainer)
+                                .border(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
                                 .clickable { type = t }
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
                                 label,
                                 fontSize   = 13.sp,
-                                color      = if (active) WarmPaper else InkMedium,
+                                color      = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
@@ -581,10 +576,10 @@ fun CategoryEditSheet(
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (active) previewColor.copy(alpha = 0.11f) else WarmPaper)
+                                .background(if (active) previewColor.copy(alpha = 0.11f) else MaterialTheme.colorScheme.background)
                                 .border(
                                     width  = if (active) 1.5.dp else 1.dp,
-                                    color  = if (active) previewColor else Rule,
+                                    color  = if (active) previewColor else MaterialTheme.colorScheme.outlineVariant,
                                     shape  = RoundedCornerShape(10.dp)
                                 )
                                 .clickable {
@@ -595,7 +590,7 @@ fun CategoryEditSheet(
                         ) {
                             Icon(
                                 ic, contentDescription = null,
-                                tint     = if (active) previewColor else InkMedium,
+                                tint     = if (active) previewColor else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -615,14 +610,14 @@ fun CategoryEditSheet(
                 ) {
                     rowColors.forEach { hex ->
                         val active = hex == colorHex
-                        val c      = remember(hex) { hex.toComposeColor() }
+                        val c      = rememberCategoryColor(hex)
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .background(c)
                                 .then(
-                                    if (active) Modifier.border(3.dp, WarmPaper, CircleShape)
+                                    if (active) Modifier.border(3.dp, MaterialTheme.colorScheme.background, CircleShape)
                                     else Modifier
                                 )
                                 .clickable {
@@ -635,7 +630,7 @@ fun CategoryEditSheet(
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = null,
-                                    tint     = Color.White,
+                                    tint     = FinnFlowTheme.colors.onChartSlice(c),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -652,8 +647,8 @@ fun CategoryEditSheet(
                     onClick  = { onDelete(category) },
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(12.dp),
-                    border   = androidx.compose.foundation.BorderStroke(1.dp, ExpenseClay),
-                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseClay)
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, FinnFlowTheme.colors.expense),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = FinnFlowTheme.colors.expense)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
@@ -663,7 +658,7 @@ fun CategoryEditSheet(
 
             // Cancel / Save
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = Rule)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -673,8 +668,8 @@ fun CategoryEditSheet(
                     onClick  = onClose,
                     modifier = Modifier.weight(1f),
                     shape    = RoundedCornerShape(12.dp),
-                    border   = androidx.compose.foundation.BorderStroke(1.dp, Rule),
-                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = InkMedium)
+                    border   = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors   = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
                 ) {
                     Text("Cancel", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -684,10 +679,10 @@ fun CategoryEditSheet(
                     modifier = Modifier.weight(1f),
                     shape    = RoundedCornerShape(12.dp),
                     colors   = ButtonDefaults.buttonColors(
-                        containerColor         = Ink,
-                        contentColor           = WarmPaper,
-                        disabledContainerColor = Rule,
-                        disabledContentColor   = InkFaint
+                        containerColor         = MaterialTheme.colorScheme.onSurface,
+                        contentColor           = MaterialTheme.colorScheme.background,
+                        disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
+                        disabledContentColor   = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 ) {
                     Text(
@@ -707,7 +702,7 @@ private fun SheetFieldLabel(text: String) {
         text,
         fontSize   = 11.sp,
         fontWeight = FontWeight.SemiBold,
-        color      = InkFaint,
+        color      = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 0.8.sp
     )
 }

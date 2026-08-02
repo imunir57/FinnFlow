@@ -34,14 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
-import com.finnflow.ui.theme.ExpenseClay
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
+import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
 private const val TAG = "ProfileScreen"
@@ -50,11 +43,6 @@ private fun fmtAmount(amount: Double): String =
     if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
     else "%,.2f".format(amount)
 
-private val IconEmail      = Color(0xFF3A6EA5)
-private val IconCloud      = Color(0xFF2E8B94)
-private val IconPrivacy    = Color(0xFF7A5C3E)
-private val IconCalendar   = Color(0xFF7A4FA0)
-private val IconCurrency   = Color(0xFF3E4A8A)
 
 @Composable
 fun ProfileScreen(
@@ -103,14 +91,14 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        containerColor = WarmPaper,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(paddingValues)
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Row(
             modifier = Modifier
@@ -119,9 +107,9 @@ fun ProfileScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = InkMedium)
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("Profile", fontFamily = FontFamily.Serif, fontSize = 26.sp, color = Ink)
+            Text("Profile", fontFamily = FontFamily.Serif, fontSize = 26.sp, color = MaterialTheme.colorScheme.onSurface)
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -140,14 +128,14 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(90.dp)
                                 .clip(CircleShape)
-                                .background(IncomeGreen),
+                                .background(MaterialTheme.colorScheme.secondary),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 profile.initials.ifBlank { "?" },
                                 fontSize = 36.sp,
                                 fontFamily = FontFamily.Serif,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onSecondary
                             )
                         }
                         Box(
@@ -155,17 +143,17 @@ fun ProfileScreen(
                                 .size(32.dp)
                                 .align(Alignment.BottomEnd)
                                 .clip(CircleShape)
-                                .background(WarmPaper)
+                                .background(MaterialTheme.colorScheme.background)
                                 .padding(3.dp)
                                 .clip(CircleShape)
-                                .background(Ink)
+                                .background(MaterialTheme.colorScheme.primary)
                                 .clickable { enterEditMode() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = "Edit name",
-                                tint = WarmPaper,
+                                tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(14.dp)
                             )
                         }
@@ -179,7 +167,7 @@ fun ProfileScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            val inkColor = Ink
+                            val inkColor = MaterialTheme.colorScheme.onSurface
                             BasicTextField(
                                 value = draft,
                                 onValueChange = { draft = it },
@@ -197,10 +185,10 @@ fun ProfileScreen(
                                 textStyle = TextStyle(
                                     fontFamily = FontFamily.Serif,
                                     fontSize = 22.sp,
-                                    color = Ink,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center
                                 ),
-                                cursorBrush = SolidColor(Ink),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Words,
@@ -212,14 +200,14 @@ fun ProfileScreen(
                                 modifier = Modifier
                                     .size(30.dp)
                                     .clip(CircleShape)
-                                    .background(Ink)
+                                    .background(MaterialTheme.colorScheme.primary)
                                     .clickable { commitEdit() },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     Icons.Default.Check,
                                     contentDescription = "Save",
-                                    tint = WarmPaper,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -234,19 +222,19 @@ fun ProfileScreen(
                                 profile.displayName.ifBlank { "Your Name" },
                                 fontFamily = FontFamily.Serif,
                                 fontSize = 24.sp,
-                                color = Ink
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Icon(
                                 Icons.Default.Edit,
                                 contentDescription = null,
-                                tint = InkMedium,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(13.dp)
                             )
                         }
                     }
 
                     Spacer(Modifier.height(4.dp))
-                    Text(accountLabel, fontSize = 12.5.sp, color = InkMedium)
+                    Text(accountLabel, fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -257,8 +245,8 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                         .padding(bottom = 18.dp)
-                        .background(WarmCard, RoundedCornerShape(18.dp))
-                        .border(1.dp, Rule, RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(18.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
                         .padding(vertical = 16.dp, horizontal = 12.dp)
                         .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically
@@ -266,23 +254,23 @@ fun ProfileScreen(
                     StatCell(
                         label = "Income",
                         value = fmtAmount(uiState.totalIncome),
-                        color = IncomeGreen,
+                        color = FinnFlowTheme.colors.income,
                         currencyPrefix = "৳",
                         modifier = Modifier.weight(1f)
                     )
-                    VerticalDivider(modifier = Modifier.fillMaxHeight(), color = Rule)
+                    VerticalDivider(modifier = Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
                     StatCell(
                         label = "Expense",
                         value = fmtAmount(uiState.totalExpense),
-                        color = ExpenseClay,
+                        color = FinnFlowTheme.colors.expense,
                         currencyPrefix = "৳",
                         modifier = Modifier.weight(1f)
                     )
-                    VerticalDivider(modifier = Modifier.fillMaxHeight(), color = Rule)
+                    VerticalDivider(modifier = Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
                     StatCell(
                         label = "Entries",
                         value = uiState.entryCount.toString(),
-                        color = Ink,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -293,7 +281,7 @@ fun ProfileScreen(
             item {
                 ProfileRow(
                     icon = Icons.Default.Email,
-                    iconColor = IconEmail,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentEmail),
                     label = "Email",
                     subtitle = accountLabel
                 )
@@ -301,7 +289,7 @@ fun ProfileScreen(
             item {
                 ProfileRow(
                     icon = Icons.Default.Cloud,
-                    iconColor = IconCloud,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentCloud),
                     label = "Cloud sync",
                     subtitle = cloudSyncSubtitle,
                     right = if (profile.isSignedIn) {
@@ -309,7 +297,7 @@ fun ProfileScreen(
                             Icon(
                                 Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = IconCloud,
+                                tint = FinnFlowTheme.colors.adapt(AccentCloud),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -317,14 +305,14 @@ fun ProfileScreen(
                         {
                             Box(
                                 modifier = Modifier
-                                    .background(Rule, RoundedCornerShape(999.dp))
+                                    .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     "SIGN IN",
                                     fontSize = 10.5.sp,
                                     letterSpacing = 0.5.sp,
-                                    color = InkMedium
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -340,7 +328,7 @@ fun ProfileScreen(
             item {
                 ProfileRow(
                     icon = Icons.Default.Shield,
-                    iconColor = IconPrivacy,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentPrivacy),
                     label = "Privacy",
                     subtitle = "Your data is stored on this device only"
                 )
@@ -351,22 +339,22 @@ fun ProfileScreen(
             item {
                 ProfileRow(
                     icon = Icons.Default.CalendarMonth,
-                    iconColor = IconCalendar,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentCalendar),
                     label = "Start of month",
-                    right = { Text("1st", fontSize = 12.5.sp, color = InkMedium) }
+                    right = { Text("1st", fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 )
             }
             item {
                 ProfileRow(
                     icon = Icons.Default.Payments,
-                    iconColor = IconCurrency,
+                    iconColor = FinnFlowTheme.colors.adapt(AccentCurrency),
                     label = "Default currency",
                     right = {
                         Text(
                             "৳",
                             fontFamily = FontFamily.Serif,
                             fontSize = 18.sp,
-                            color = InkMedium
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 )
@@ -377,7 +365,7 @@ fun ProfileScreen(
                 Text(
                     "Member since January 2025",
                     fontSize = 11.5.sp,
-                    color = InkFaint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -404,7 +392,7 @@ private fun StatCell(
             label.uppercase(),
             fontSize = 10.sp,
             letterSpacing = 1.sp,
-            color = InkFaint
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.Bottom) {
@@ -435,7 +423,7 @@ private fun ProfileSectionHeader(title: String) {
         fontSize = 10.5.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.2.sp,
-        color = InkMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 14.dp, bottom = 6.dp)
     )
 }
@@ -469,10 +457,10 @@ private fun ProfileRow(
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
             if (subtitle != null) {
                 Spacer(Modifier.height(1.dp))
-                Text(subtitle, fontSize = 11.5.sp, color = InkMedium)
+                Text(subtitle, fontSize = 11.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         right?.invoke()

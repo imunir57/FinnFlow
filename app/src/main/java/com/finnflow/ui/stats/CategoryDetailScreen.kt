@@ -23,20 +23,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.SubCategorySummary
 import com.finnflow.data.model.Transaction
+import com.finnflow.ui.theme.FinnFlowTheme
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
 import kotlin.math.sin
-
-/** Category-specific shades — darkest to lightest within the same hue family */
-private val categoryShades = listOf(
-    Color(0xFFE24B4A), Color(0xFFC03030), Color(0xFFE87070),
-    Color(0xFFF0A0A0), Color(0xFFF8D0D0), Color(0xFFFFEEEE)
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,8 +44,10 @@ fun CategoryDetailScreen(
     val state by viewModel.state.collectAsState()
     val resolvedName by viewModel.categoryName.collectAsState()
     val displayName = resolvedName.ifBlank { categoryName }
+    val shades = FinnFlowTheme.colors.subCategoryShades
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text(displayName) },
@@ -57,7 +55,12 @@ fun CategoryDetailScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
     ) { padding ->
@@ -123,7 +126,7 @@ fun CategoryDetailScreen(
             } else {
                 items(state.summaries.size) { index ->
                     val summary = state.summaries[index]
-                    val color = categoryShades[index % categoryShades.size]
+                    val color = shades[index % shades.size]
                     val isExpanded = state.isExpanded(summary.subCategoryId)
                     val transactions = state.transactionsBySubCategory[summary.subCategoryId]
 
@@ -226,6 +229,9 @@ private fun CategoryHeaderCard(state: CategoryDetailUiState) {
 private fun CategoryDonutChart(state: CategoryDetailUiState) {
     val strokeWidth = 48f
     val chartSize = 200.dp
+    val ffColors = FinnFlowTheme.colors
+    val shades = ffColors.subCategoryShades
+    val emptyTrack = MaterialTheme.colorScheme.outlineVariant
 
     Box(
         modifier = Modifier
@@ -244,7 +250,7 @@ private fun CategoryDonutChart(state: CategoryDetailUiState) {
 
             if (state.summaries.isEmpty()) {
                 drawArc(
-                    color = Color.LightGray.copy(alpha = 0.3f),
+                    color = emptyTrack,
                     startAngle = 0f, sweepAngle = 360f, useCenter = false,
                     topLeft = topLeft, size = arcSize, style = Stroke(width = strokeWidth)
                 )
@@ -253,7 +259,7 @@ private fun CategoryDonutChart(state: CategoryDetailUiState) {
                     val sweep = if (state.totalAmount > 0)
                         (summary.totalAmount / state.totalAmount * 360f).toFloat()
                     else 0f
-                    val color = categoryShades[index % categoryShades.size]
+                    val color = shades[index % shades.size]
 
                     drawArc(
                         color = color,
@@ -273,7 +279,9 @@ private fun CategoryDonutChart(state: CategoryDetailUiState) {
                         val labelY = size.height / 2 + (radius * sin(midAngle)).toFloat()
                         drawContext.canvas.nativeCanvas.apply {
                             val paint = android.graphics.Paint().apply {
-                                this.color = android.graphics.Color.WHITE
+                                // The ramp runs light in dark mode, so a fixed white label
+                                // would be unreadable on the pale end of it.
+                                this.color = ffColors.onChartSlice(color).toArgb()
                                 textSize = 26f
                                 textAlign = android.graphics.Paint.Align.CENTER
                                 isFakeBoldText = true
@@ -298,16 +306,20 @@ private fun CategoryDonutChart(state: CategoryDetailUiState) {
 
 @Composable
 private fun SubCategoryLegend(state: CategoryDetailUiState) {
+    val shades = FinnFlowTheme.colors.subCategoryShades
     val chunked = state.summaries.chunked(2)
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         chunked.forEachIndexed { rowIndex, pair ->
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 pair.forEachIndexed { colIndex, summary ->
                     val globalIndex = rowIndex * 2 + colIndex
-                    val color = categoryShades[globalIndex % categoryShades.size]
+                    val color = shades[globalIndex % shades.size]
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
@@ -342,8 +354,7 @@ private fun SubCategoryRow(
             .fillMaxWidth()
             .clickable(onClick = onToggle)
             .background(
-                if (isExpanded) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
-                else Color.Transparent
+                if (isExpanded) FinnFlowTheme.colors.selectedRow else Color.Transparent
             )
             .padding(vertical = 10.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically

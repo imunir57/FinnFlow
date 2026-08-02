@@ -43,7 +43,7 @@ fun InsightsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         Row(
             modifier = Modifier
@@ -52,17 +52,17 @@ fun InsightsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = InkMedium)
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
                 "Insights",
                 fontFamily = FontFamily.Serif,
                 fontSize = 26.sp,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
             IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = InkMedium)
+                Icon(Icons.Default.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -75,16 +75,16 @@ fun InsightsScreen(
             IconButton(onClick = viewModel::previousMonth, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.ArrowBack, contentDescription = "Previous month",
-                    tint = InkMedium, modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)
                 )
             }
             Spacer(Modifier.width(4.dp))
-            Text(state.monthLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+            Text(state.monthLabel, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = viewModel::nextMonth, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.ArrowForward, contentDescription = "Next month",
-                    tint = InkMedium, modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -118,14 +118,10 @@ private fun HeroCard(state: InsightsUiState) {
     val net = state.net
     val monthName = state.monthLabel.substringBefore(" ")
 
-    val heroGradient = Brush.linearGradient(
-        colorStops = arrayOf(
-            0.0f to Color(0xFF1A2820),
-            0.4f to Color(0xFF1E1916),
-            1.0f to Color(0xFF241410)
-        )
-    )
-    val rateColor = if (rate >= 0) Color(0xFF7EC8A0) else Color(0xFFE8A880)
+    val heroGradient = FinnFlowTheme.colors.heroGradient
+    val heroText = FinnFlowTheme.colors.heroOnSurface
+    val rateColor = if (rate >= 0) FinnFlowTheme.colors.heroIncome
+                    else FinnFlowTheme.colors.heroExpense
     val message = when {
         rate >= 30 -> "Strong month — you held back nearly a third of what came in."
         rate >= 10 -> "Net ৳${fmtAmount(net)} saved so far. On track for a positive close."
@@ -145,7 +141,7 @@ private fun HeroCard(state: InsightsUiState) {
             Text(
                 "Savings rate · $monthName",
                 fontSize = 10.5.sp,
-                color = WarmPaper.copy(alpha = 0.65f),
+                color = heroText.copy(alpha = 0.65f),
                 letterSpacing = 1.2.sp
             )
             Spacer(Modifier.height(4.dp))
@@ -163,7 +159,7 @@ private fun HeroCard(state: InsightsUiState) {
                     "%",
                     fontFamily = FontFamily.Serif,
                     fontSize = 28.sp,
-                    color = WarmPaper.copy(alpha = 0.70f),
+                    color = heroText.copy(alpha = 0.70f),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
@@ -171,7 +167,7 @@ private fun HeroCard(state: InsightsUiState) {
             Text(
                 message,
                 fontSize = 12.5.sp,
-                color = WarmPaper.copy(alpha = 0.70f),
+                color = heroText.copy(alpha = 0.70f),
                 lineHeight = 18.sp
             )
         }
@@ -191,8 +187,8 @@ private fun InsightCard(
             .padding(horizontal = 16.dp, vertical = 10.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .border(1.dp, Rule, RoundedCornerShape(18.dp))
-            .background(WarmCard)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -200,7 +196,7 @@ private fun InsightCard(
                 title,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink,
+                color = MaterialTheme.colorScheme.onSurface,
                 letterSpacing = 0.1.sp
             )
             Spacer(Modifier.weight(1f))
@@ -208,7 +204,7 @@ private fun InsightCard(
                 Text(
                     caption,
                     fontSize = 11.5.sp,
-                    color = InkFaint,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.End,
@@ -236,19 +232,19 @@ private fun IncomeExpenseBarCard(state: InsightsUiState) {
 
     InsightCard(title = "Income vs Expense", caption = caption) {
         Spacer(Modifier.height(10.dp))
-        BarLine(label = "Income", value = state.income, max = max, color = IncomeGreen)
+        BarLine(label = "Income", value = state.income, max = max, color = FinnFlowTheme.colors.income)
         Spacer(Modifier.height(8.dp))
-        BarLine(label = "Expense", value = state.expense, max = max, color = ExpenseClay)
+        BarLine(label = "Expense", value = state.expense, max = max, color = FinnFlowTheme.colors.expense)
         Spacer(Modifier.height(12.dp))
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(10.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            Text("NET BALANCE", fontSize = 11.sp, color = InkFaint, letterSpacing = 0.6.sp)
-            val netColor = if (net >= 0) IncomeGreen else ExpenseClay
+            Text("NET BALANCE", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.6.sp)
+            val netColor = if (net >= 0) FinnFlowTheme.colors.income else FinnFlowTheme.colors.expense
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     if (net >= 0) "+" else "−",
@@ -282,10 +278,10 @@ private fun BarLine(label: String, value: Double, max: Double, color: Color) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
     ) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = InkMedium)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("৳", fontSize = 11.sp, color = InkFaint, modifier = Modifier.padding(end = 1.dp))
-            Text(fmtAmount(value), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Ink)
+            Text("৳", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 1.dp))
+            Text(fmtAmount(value), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         }
     }
     Spacer(Modifier.height(4.dp))
@@ -294,7 +290,7 @@ private fun BarLine(label: String, value: Double, max: Double, color: Color) {
             .fillMaxWidth()
             .height(8.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(Rule)
+            .background(MaterialTheme.colorScheme.outlineVariant)
     ) {
         Box(
             modifier = Modifier
@@ -348,12 +344,12 @@ private fun DailyTrendCard(state: InsightsUiState) {
                 Text(
                     label,
                     fontSize = 9.5.sp,
-                    color = if (i == 3) InkFaint.copy(alpha = 0.5f) else InkFaint
+                    color = if (i == 3) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
         Spacer(Modifier.height(12.dp))
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(10.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -370,7 +366,7 @@ private fun DailyTrendCard(state: InsightsUiState) {
                     .padding(horizontal = 6.dp)
                     .width(1.dp)
                     .height(40.dp)
-                    .background(Rule)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
             MiniStat(
                 label = "Quietest",
@@ -383,13 +379,13 @@ private fun DailyTrendCard(state: InsightsUiState) {
                     .padding(horizontal = 6.dp)
                     .width(1.dp)
                     .height(40.dp)
-                    .background(Rule)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
             MiniStat(
                 label = "Today",
                 value = "৳${fmtAmount(todayAmount)}",
                 sub = if (todayAmount > state.avgDailySpend) "above avg" else "below avg",
-                valueColor = if (todayAmount > state.avgDailySpend) ExpenseClay else IncomeGreen,
+                valueColor = if (todayAmount > state.avgDailySpend) FinnFlowTheme.colors.expense else FinnFlowTheme.colors.income,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -404,10 +400,10 @@ private fun SparklineCanvas(
     avgSpend: Double,
     modifier: Modifier = Modifier
 ) {
-    val clay = ExpenseClay
-    val inkColor = Ink
-    val faintColor = InkFaint
-    val paperColor = WarmPaper
+    val clay = FinnFlowTheme.colors.expense
+    val inkColor = MaterialTheme.colorScheme.onSurface
+    val faintColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val paperColor = MaterialTheme.colorScheme.background
 
     Canvas(modifier = modifier) {
         val visible = dailyTotals.take(todayIndex + 1)
@@ -529,13 +525,13 @@ private fun HighlightRow(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Rule)
+                .background(MaterialTheme.colorScheme.outlineVariant)
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 label,
                 fontSize = 10.5.sp,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 letterSpacing = 0.6.sp
             )
             Spacer(Modifier.height(1.dp))
@@ -544,14 +540,14 @@ private fun HighlightRow(
                     primary,
                     fontFamily = FontFamily.Serif,
                     fontSize = 16.sp,
-                    color = Ink
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (arrowUp) {
                     Text(
                         "▲",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = ExpenseClay,
+                        color = FinnFlowTheme.colors.expense,
                         letterSpacing = 0.4.sp
                     )
                 }
@@ -559,7 +555,7 @@ private fun HighlightRow(
             Text(
                 sub,
                 fontSize = 11.5.sp,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -587,9 +583,11 @@ private fun DayOfWeekCard(state: InsightsUiState) {
             totals.forEachIndexed { i, v ->
                 val intensity = (v / max).toFloat()
                 val isPeak = i == peakIdx
-                val bgColor = if (v == 0.0) Rule
-                else lerp(Color(0xFFF5E8E4), ExpenseClay, intensity)
-                val borderColor = if (isPeak) ExpenseClay else Rule
+                val bgColor = if (v == 0.0) MaterialTheme.colorScheme.outlineVariant
+                // Ramp starts from the card surface so the low end recedes in both themes —
+                // a fixed pale tint would be a bright blob on the dark card.
+                else lerp(MaterialTheme.colorScheme.surfaceContainerHigh, FinnFlowTheme.colors.expense, intensity)
+                val borderColor = if (isPeak) FinnFlowTheme.colors.expense else MaterialTheme.colorScheme.outlineVariant
                 val borderWidth = if (isPeak) 1.5.dp else 1.dp
 
                 Column(
@@ -599,7 +597,7 @@ private fun DayOfWeekCard(state: InsightsUiState) {
                     Text(
                         if (v > 0) "${(v / 1000).roundToInt()}k" else "—",
                         fontSize = 9.5.sp,
-                        color = if (isPeak) ExpenseClay else InkFaint,
+                        color = if (isPeak) FinnFlowTheme.colors.expense else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (isPeak) FontWeight.SemiBold else FontWeight.Normal
                     )
                     Box(
@@ -612,7 +610,7 @@ private fun DayOfWeekCard(state: InsightsUiState) {
                     Text(
                         WEEKDAY_ABBREV[i],
                         fontSize = 10.sp,
-                        color = if (isPeak) Ink else InkMedium,
+                        color = if (isPeak) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = if (isPeak) FontWeight.SemiBold else FontWeight.Medium,
                         letterSpacing = 0.3.sp
                     )
@@ -629,11 +627,11 @@ private fun MiniStat(
     label: String,
     value: String,
     sub: String = "",
-    valueColor: Color = Ink,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        Text(label, fontSize = 9.5.sp, color = InkFaint, letterSpacing = 0.8.sp)
+        Text(label, fontSize = 9.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.8.sp)
         Text(
             value,
             fontFamily = FontFamily.Serif,
@@ -647,7 +645,7 @@ private fun MiniStat(
             Text(
                 sub,
                 fontSize = 10.5.sp,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -660,7 +658,7 @@ private fun FooterText() {
     Text(
         "Insights are computed from your local transactions only.\nNothing leaves your device.",
         fontSize = 13.sp,
-        color = InkFaint.copy(alpha = 0.7f),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
         fontFamily = FontFamily.Serif,
         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
         textAlign = TextAlign.Center,
