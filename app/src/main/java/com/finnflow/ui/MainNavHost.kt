@@ -3,12 +3,15 @@ package com.finnflow.ui
 import android.app.Activity
 import android.view.WindowManager
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -39,7 +42,8 @@ private const val TAG = "MainNavHost"
 private val bottomBarRoutes = setOf(
     Screen.Home.route,
     Screen.Stats.route,
-    Screen.Yearly.route
+    Screen.Yearly.route,
+    Screen.Settings.route
 )
 
 @Composable
@@ -53,6 +57,8 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
     }
     val appLockEnabled by mainViewModel.appLockEnabled.collectAsState()
     val isUnlocked by mainViewModel.isUnlocked.collectAsState()
+    val currency by mainViewModel.currency.collectAsState()
+    val currencyFormat = remember(currency) { CurrencyFormat(currency) }
 
     SecureLogger.d(TAG, "NavHost state - onboardingDone: $onboardingDone, appLockEnabled: $appLockEnabled, isUnlocked: $isUnlocked, themeMode: $themeMode")
 
@@ -76,6 +82,9 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
         return
     }
 
+    // Currency is ambient presentation context, exactly like the theme: resolved once here
+    // from the profile rather than threaded through every ViewModel and composable.
+    CompositionLocalProvider(LocalCurrencyFormat provides currencyFormat) {
     FinnFlowTheme(darkTheme = isDarkTheme) {
     if (appLockEnabled && !isUnlocked) {
         SecureLogger.d(TAG, "Rendering AppLockScreen - app locked")
@@ -98,7 +107,12 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
         NavHost(
             navController = navController,
             startDestination = if (onboardingDone == true) Screen.Home.route else Screen.Onboarding.route,
-            modifier = Modifier.padding(padding)
+            // `padding` offsets the content but does not consume the insets it came from, so a
+            // screen with its own Scaffold would apply the status/navigation bar inset a second
+            // time and sit too low. Consuming here fixes every such screen at once.
+            modifier = Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding)
         ) {
             composable(Screen.Onboarding.route) {
                 SecureLogger.d(TAG, "Navigating to Onboarding")
@@ -122,10 +136,6 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                     onEditTransaction = { id ->
                         SecureLogger.d(TAG, "User navigating to EditTransaction for id=$id")
                         navController.navigate(Screen.EditTransaction.createRoute(id))
-                    },
-                    onNavigateToSettings = {
-                        SecureLogger.d(TAG, "User navigating to Settings")
-                        navController.navigate(Screen.Settings.route)
                     },
                     onNavigateToProfile = {
                         SecureLogger.d(TAG, "User navigating to Profile")
@@ -191,10 +201,6 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
             composable(Screen.Settings.route) {
                 SecureLogger.d(TAG, "Navigating to Settings")
                 SettingsScreen(
-                    onBack = {
-                        SecureLogger.d(TAG, "User navigating back from Settings")
-                        navController.popBackStack()
-                    },
                     onNavigateToCategories = {
                         SecureLogger.d(TAG, "User navigating to Categories from Settings")
                         navController.navigate(Screen.Categories.route)
@@ -270,6 +276,7 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 })
             }
         }
+    }
     }
     }
 }

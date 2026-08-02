@@ -50,7 +50,6 @@ private const val TAG = "SettingsScreen"
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
-    onBack: () -> Unit = {},
     onNavigateToCategories: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {},
     onNavigateToAbout: () -> Unit = {}
@@ -158,15 +157,14 @@ fun SettingsScreen(
             .padding(paddingValues)
             .background(MaterialTheme.colorScheme.background)
     ) {
+        // Settings is a top-level bottom-nav destination, so there is no back
+        // affordance here — there is nothing to pop to.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 18.dp, top = 10.dp, bottom = 6.dp),
+                .padding(start = 22.dp, end = 18.dp, top = 18.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             Text(
                 "Settings",
                 fontFamily = FontFamily.Serif,

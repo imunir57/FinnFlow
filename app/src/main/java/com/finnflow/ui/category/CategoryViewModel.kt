@@ -9,6 +9,7 @@ import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.repository.CategoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -51,6 +52,10 @@ class CategoryViewModel @Inject constructor(
     private val _selectedType = MutableStateFlow(TransactionType.EXPENSE)
     private val _state = MutableStateFlow(CategoryUiState())
     val state: StateFlow<CategoryUiState> = _state.asStateFlow()
+
+    /** One-shot user-facing messages, surfaced by the screen as a snackbar. */
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages = _messages.receiveAsFlow()
 
     init {
         SecureLogger.d(TAG, "Initializing CategoryViewModel with parentCategoryId=$parentCategoryId")
@@ -154,6 +159,13 @@ class CategoryViewModel @Inject constructor(
                 SecureLogger.i(TAG, "Category deleted successfully: id=${category.id}")
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Error deleting category: id=${category.id}", e)
+                // `transactions.categoryId` is ON DELETE RESTRICT, so a category still in use
+                // by any transaction refuses to delete. Without this the user confirms the
+                // dialog, the sheet closes, and nothing visibly happens.
+                _messages.send(
+                    "\"${category.name}\" is still used by existing transactions, so it can't " +
+                        "be deleted. Move those transactions to another category first."
+                )
             }
         }
     }

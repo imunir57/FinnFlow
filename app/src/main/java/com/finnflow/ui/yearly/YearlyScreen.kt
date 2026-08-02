@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.FinnFlowTheme
 import java.time.LocalDate
 import java.time.Month
@@ -27,13 +27,10 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToLong
 
-private fun fmtAmount(amount: Double): String =
-    if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
-    else "%,.2f".format(amount)
-
 @Composable
 fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
+    val money = LocalCurrencyFormat.current
     val maxMonthVal = remember(state.incomeByMonth, state.expenseByMonth) {
         (state.incomeByMonth + state.expenseByMonth).maxOfOrNull { it.total }?.takeIf { it > 0 } ?: 1.0
     }
@@ -48,27 +45,17 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
             .background(MaterialTheme.colorScheme.background)
     ) {
         // ── Title bar ─────────────────────────────────────────────────────
-        Row(
+        // Padding replaces the height the removed overflow IconButton used to contribute
+        // (48.dp touch target), so the title keeps its original vertical rhythm.
+        Text(
+            "Yearly",
+            fontFamily = FontFamily.Serif,
+            fontSize = 26.sp,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Yearly",
-                fontFamily = FontFamily.Serif,
-                fontSize = 26.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {}) {
-                Icon(
-                    Icons.Default.MoreVert,
-                    "Menu",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+                .padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 14.dp)
+        )
 
         // ── Year navigator ────────────────────────────────────────────────
         Row(
@@ -110,8 +97,9 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 .clip(RoundedCornerShape(24.dp))
                 .background(FinnFlowTheme.colors.heroGradient)
         ) {
+            // Decorative watermark — see the note on Home's equivalent.
             Text(
-                "৳",
+                money.symbol,
                 fontSize = 160.sp,
                 fontFamily = FontFamily.Serif,
                 color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
@@ -129,14 +117,14 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.Top) {
                     Text(
-                        "৳",
+                        money.symbol,
                         fontSize = 24.sp,
                         fontFamily = FontFamily.Serif,
                         color = FinnFlowTheme.colors.heroOnSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp, end = 4.dp)
                     )
                     Text(
-                        fmtAmount(state.netBalance),
+                        money.amount(state.netBalance),
                         fontSize = 52.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Normal,
@@ -238,7 +226,7 @@ private fun HeroStat(label: String, value: Double, color: Color, modifier: Modif
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "৳ ${fmtAmount(value)}",
+            LocalCurrencyFormat.current.format(value),
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
             color = FinnFlowTheme.colors.heroOnSurface
@@ -264,6 +252,7 @@ private fun AvgStrip(avgIn: Double, avgOut: Double) {
 
 @Composable
 private fun AvgCell(label: String, value: Double, color: Color) {
+    val money = LocalCurrencyFormat.current
     Column {
         Text(
             label,
@@ -274,14 +263,14 @@ private fun AvgCell(label: String, value: Double, color: Color) {
         Spacer(Modifier.height(2.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                "৳",
+                money.symbol,
                 fontSize = 13.sp,
                 fontFamily = FontFamily.Serif,
                 color = color.copy(alpha = 0.55f),
                 modifier = Modifier.padding(end = 1.dp, bottom = 2.dp)
             )
             Text(
-                fmtAmount(value.roundToLong().toDouble()),
+                money.amount(value.roundToLong().toDouble()),
                 fontSize = 22.sp,
                 fontFamily = FontFamily.Serif,
                 color = color,
@@ -299,6 +288,7 @@ private fun MonthRow(
     maxVal: Double,
     isCurrent: Boolean = false
 ) {
+    val money = LocalCurrencyFormat.current
     val balance = income - expense
     val hasData = income > 0 || expense > 0
 
@@ -349,17 +339,17 @@ private fun MonthRow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "+${fmtAmount(income)}",
+                        "+${money.amount(income)}",
                         fontSize = 11.5.sp,
                         color = FinnFlowTheme.colors.income
                     )
                     Text(
-                        "-${fmtAmount(expense)}",
+                        "-${money.amount(expense)}",
                         fontSize = 11.5.sp,
                         color = FinnFlowTheme.colors.expense
                     )
                     Text(
-                        (if (balance >= 0) "+" else "") + fmtAmount(balance),
+                        (if (balance >= 0) "+" else "") + money.amount(balance),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = if (balance >= 0) FinnFlowTheme.colors.income

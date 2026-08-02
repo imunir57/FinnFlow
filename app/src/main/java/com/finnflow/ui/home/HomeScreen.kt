@@ -12,7 +12,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +28,8 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.LocalCurrencyFormat
+import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.rememberCategoryColor
 import java.time.LocalDate
@@ -37,22 +38,22 @@ import java.util.Locale
 
 private const val TAG = "HomeScreen"
 
-private fun fmtAmount(amount: Double): String =
-    if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
-    else "%,.2f".format(amount)
-
 @Composable
 fun HomeScreen(
     onAddTransaction: () -> Unit,
     onEditTransaction: (Long) -> Unit,
-    onNavigateToSettings: () -> Unit,
     onNavigateToProfile: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     SecureLogger.d(TAG, "HomeScreen rendered")
     val state by viewModel.uiState.collectAsState()
+    val money = LocalCurrencyFormat.current
     val monthLabel = state.selectedMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) +
             " " + state.selectedMonth.year
+
+    // Held as the pending transaction (not a bare boolean) so the confirmation survives
+    // recomposition and can never be shown against a stale row.
+    var pendingDelete by remember { mutableStateOf<Transaction?>(null) }
 
     LaunchedEffect(state.selectedMonth) {
         SecureLogger.d(TAG, "HomeUiState changed: month=${state.selectedMonth}, tx_count=${state.transactions.size}, balance=${state.balance}")
@@ -75,11 +76,13 @@ fun HomeScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
 
-            // ── Top bar: avatar + greeting + 3-dot ──────────────────────
+            // ── Top bar: avatar + greeting ──────────────────────────────
+            // Same start/end/top/bottom rhythm as the Stats and Yearly title rows, so the
+            // three bottom-bar destinations start their content at the same offset.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -113,16 +116,6 @@ fun HomeScreen(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-                IconButton(onClick = {
-                    SecureLogger.d(TAG, "User clicked settings button")
-                    onNavigateToSettings()
-                }) {
-                    Icon(
-                        Icons.Default.Settings,
-                        "Settings",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -183,9 +176,12 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(24.dp))
                             .background(FinnFlowTheme.colors.heroGradient)
                     ) {
-                        // Decorative ৳ watermark
+                        // Decorative watermark. Follows the active currency: a Taka glyph on a
+                        // dollar user's balance card was part of the bug being fixed. Height is
+                        // set by the font's line metrics, not the glyph, so the card does not
+                        // resize when the symbol changes.
                         Text(
-                            "৳",
+                            money.symbol,
                             fontSize = 160.sp,
                             fontFamily = FontFamily.Serif,
                             color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
@@ -203,14 +199,14 @@ fun HomeScreen(
                             Spacer(Modifier.height(6.dp))
                             Row(verticalAlignment = Alignment.Top) {
                                 Text(
-                                    "৳",
+                                    money.symbol,
                                     fontSize = 24.sp,
                                     fontFamily = FontFamily.Serif,
                                     color = FinnFlowTheme.colors.heroOnSurfaceVariant,
                                     modifier = Modifier.padding(top = 8.dp, end = 4.dp)
                                 )
                                 Text(
-                                    fmtAmount(state.balance),
+                                    money.amount(state.balance),
                                     fontSize = 52.sp,
                                     fontFamily = FontFamily.Serif,
                                     fontWeight = FontWeight.Normal,
@@ -265,7 +261,7 @@ fun HomeScreen(
                                 transaction = tx,
                                 category    = cat,
                                 onEdit      = { onEditTransaction(tx.id) },
-                                onDelete    = { viewModel.deleteTransaction(tx) }
+                                onDelete    = { pendingDelete = tx }
                             )
                         }
                     }
@@ -274,6 +270,29 @@ fun HomeScreen(
                 item { Spacer(Modifier.height(100.dp)) }
             }
         }
+    }
+
+    pendingDelete?.let { tx ->
+        val label = state.categories[tx.categoryId]?.name ?: tx.type.name
+        val described = if (tx.note.isNotBlank()) "$label · ${tx.note}" else label
+        val day = "${tx.date.dayOfMonth} " +
+                tx.date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) +
+                " ${tx.date.year}"
+        ConfirmationDialog(
+            title = "Delete transaction?",
+            message = "$described — ${money.format(tx.amount)} on $day will be permanently " +
+                    "deleted. This can't be undone.",
+            confirmLabel = "Delete",
+            onConfirm = {
+                SecureLogger.d(TAG, "User confirmed delete for transaction id=${tx.id}")
+                viewModel.deleteTransaction(tx)
+                pendingDelete = null
+            },
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled delete for transaction id=${tx.id}")
+                pendingDelete = null
+            }
+        )
     }
 }
 
@@ -297,7 +316,7 @@ private fun HeroStat(label: String, value: Double, color: Color, modifier: Modif
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "৳ ${fmtAmount(value)}",
+            LocalCurrencyFormat.current.format(value),
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
             color = FinnFlowTheme.colors.heroOnSurface
@@ -344,7 +363,7 @@ private fun DaySectionHeader(date: LocalDate, dayTotal: Double) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            "৳ ${fmtAmount(kotlin.math.abs(dayTotal))}",
+            LocalCurrencyFormat.current.format(kotlin.math.abs(dayTotal)),
             fontSize = 12.sp,
             color = if (dayTotal >= 0) FinnFlowTheme.colors.income
                     else MaterialTheme.colorScheme.onSurfaceVariant
@@ -406,7 +425,7 @@ private fun TxRow(
         }
         Spacer(Modifier.width(8.dp))
         Text(
-            "৳ ${fmtAmount(transaction.amount)}",
+            LocalCurrencyFormat.current.format(transaction.amount),
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = if (isIncome) FinnFlowTheme.colors.income

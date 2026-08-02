@@ -202,8 +202,8 @@ class InsightsViewModelTest {
             Transaction(id = 3, type = TransactionType.EXPENSE, amount = 300.0, date = today, categoryId = 2),
         )
         val summaries = listOf(
-            CategorySummary(1, "Food & Dining", 300.0, 2),
-            CategorySummary(2, "Transport", 300.0, 1)
+            CategorySummary(1, "Food & Dining", "#FF9800", 300.0, 2),
+            CategorySummary(2, "Transport", "#3F51B5", 300.0, 1)
         )
         every { repo.getTransactionsByMonth(any()) } returns flowOf(txns)
         every { repo.getCategorySummary(currentYm.atDay(1), currentYm.atEndOfMonth(), TransactionType.EXPENSE) } returns flowOf(summaries)
@@ -221,12 +221,12 @@ class InsightsViewModelTest {
     @Test
     fun `MoM highlights category with biggest increase`() = runTest {
         val curExpense = listOf(
-            CategorySummary(3, "Housing", 22000.0, 2),
-            CategorySummary(1, "Food", 5000.0, 8)
+            CategorySummary(3, "Housing", "#795548", 22000.0, 2),
+            CategorySummary(1, "Food", "#FF9800", 5000.0, 8)
         )
         val prevExpense = listOf(
-            CategorySummary(3, "Housing", 18000.0, 2),
-            CategorySummary(1, "Food", 4800.0, 7)
+            CategorySummary(3, "Housing", "#795548", 18000.0, 2),
+            CategorySummary(1, "Food", "#FF9800", 4800.0, 7)
         )
         every { repo.getCategorySummary(currentYm.atDay(1), currentYm.atEndOfMonth(), TransactionType.EXPENSE) } returns flowOf(curExpense)
         every { repo.getCategorySummary(prevYm.atDay(1), prevYm.atEndOfMonth(), TransactionType.EXPENSE) } returns flowOf(prevExpense)

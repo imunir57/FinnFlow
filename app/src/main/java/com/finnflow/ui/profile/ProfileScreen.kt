@@ -34,15 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
 private const val TAG = "ProfileScreen"
-
-private fun fmtAmount(amount: Double): String =
-    if (amount == kotlin.math.floor(amount)) "%,.0f".format(amount)
-    else "%,.2f".format(amount)
-
 
 @Composable
 fun ProfileScreen(
@@ -51,6 +47,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val profile = uiState.profile
+    val money = LocalCurrencyFormat.current
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -253,17 +250,17 @@ fun ProfileScreen(
                 ) {
                     StatCell(
                         label = "Income",
-                        value = fmtAmount(uiState.totalIncome),
+                        value = money.amount(uiState.totalIncome),
                         color = FinnFlowTheme.colors.income,
-                        currencyPrefix = "৳",
+                        currencyPrefix = money.symbol,
                         modifier = Modifier.weight(1f)
                     )
                     VerticalDivider(modifier = Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
                     StatCell(
                         label = "Expense",
-                        value = fmtAmount(uiState.totalExpense),
+                        value = money.amount(uiState.totalExpense),
                         color = FinnFlowTheme.colors.expense,
-                        currencyPrefix = "৳",
+                        currencyPrefix = money.symbol,
                         modifier = Modifier.weight(1f)
                     )
                     VerticalDivider(modifier = Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outlineVariant)
@@ -351,7 +348,7 @@ fun ProfileScreen(
                     label = "Default currency",
                     right = {
                         Text(
-                            "৳",
+                            money.symbol,
                             fontFamily = FontFamily.Serif,
                             fontSize = 18.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant

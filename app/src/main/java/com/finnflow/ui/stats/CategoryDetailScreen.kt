@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.SubCategorySummary
 import com.finnflow.data.model.Transaction
+import com.finnflow.ui.AmountStyle
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.FinnFlowTheme
 import java.time.format.DateTimeFormatter
 import kotlin.math.cos
@@ -215,7 +217,7 @@ private fun CategoryHeaderCard(state: CategoryDetailUiState) {
                 )
             }
             Text(
-                "৳ ${"%,.0f".format(state.totalAmount)}",
+                LocalCurrencyFormat.current.format(state.totalAmount, AmountStyle.Whole),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -295,7 +297,7 @@ private fun CategoryDonutChart(state: CategoryDetailUiState) {
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("৳ ${"%,.0f".format(state.totalAmount)}",
+            Text(LocalCurrencyFormat.current.format(state.totalAmount, AmountStyle.Whole),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold)
         }
@@ -382,7 +384,7 @@ private fun SubCategoryRow(
         }
 
         Text(
-            "৳ ${"%,.0f".format(summary.totalAmount)}",
+            LocalCurrencyFormat.current.format(summary.totalAmount, AmountStyle.Whole),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
         )
@@ -434,7 +436,7 @@ private fun InlineTransactionRow(transaction: Transaction, accentColor: Color) {
         }
 
         Text(
-            "৳ ${"%,.0f".format(transaction.amount)}",
+            LocalCurrencyFormat.current.format(transaction.amount, AmountStyle.Whole),
             style = MaterialTheme.typography.bodySmall,
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface

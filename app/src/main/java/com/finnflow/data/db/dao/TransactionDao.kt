@@ -51,8 +51,17 @@ interface TransactionDao {
     """)
     fun getMonthlyTotalsByYear(year: String, type: TransactionType): Flow<List<MonthlyTotal>>
 
+    /**
+     * Per-category totals for a date range.
+     *
+     * `c.colorHex` is a bare column under `GROUP BY t.categoryId`, which is safe here: the join is
+     * on `t.categoryId = c.id`, so every row in a group comes from the same category and shares
+     * one colour. Stats colours categories by this value rather than by row position, so it agrees
+     * with the Categories screen and never repeats a colour by wrapping a fixed palette.
+     */
     @Query("""
-        SELECT t.categoryId, c.name as categoryName, SUM(t.amount) as totalAmount, COUNT(*) as transactionCount
+        SELECT t.categoryId, c.name as categoryName, c.colorHex as colorHex,
+               SUM(t.amount) as totalAmount, COUNT(*) as transactionCount
         FROM transactions t
         INNER JOIN categories c ON t.categoryId = c.id
         WHERE t.date >= :from AND t.date <= :to AND t.type = :type

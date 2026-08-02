@@ -1,14 +1,18 @@
 package com.finnflow.ui.components
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-//import androidx.compose.material.icons.filled.BarChart
-//import androidx.compose.material.icons.filled.CalendarViewYear
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.PieChart
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.finnflow.ui.Screen
@@ -18,9 +22,16 @@ data class BottomNavItem(val screen: Screen, val label: String, val icon: ImageV
 
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Home, "Home", Icons.Default.Home),
-    BottomNavItem(Screen.Stats, "Stats", Icons.Default.Star),
-    BottomNavItem(Screen.Yearly, "Yearly", Icons.Default.ShoppingCart),
+    BottomNavItem(Screen.Stats, "Stats", Icons.Default.PieChart),
+    BottomNavItem(Screen.Yearly, "Yearly", Icons.Default.CalendarMonth),
+    BottomNavItem(Screen.Settings, "Settings", Icons.Default.Settings),
 )
+
+// Sized down from the Material defaults (24.dp icon / 12.sp label) so four tabs sit
+// comfortably on a ~360.dp screen without the labels wrapping or ellipsizing. The
+// NavigationBarItem indicator pill wraps the icon, so it shrinks along with it.
+private val NavIconSize = 21.dp
+private val NavLabelSize = 10.5.sp
 
 @Composable
 fun BottomNavBar(navController: NavController) {
@@ -50,8 +61,22 @@ fun BottomNavBar(navController: NavController) {
                         }
                     }
                 },
-                icon = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label) }
+                icon = {
+                    Icon(
+                        item.icon,
+                        contentDescription = item.label,
+                        modifier = Modifier.size(NavIconSize)
+                    )
+                },
+                label = {
+                    Text(
+                        item.label,
+                        fontSize = NavLabelSize,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Visible
+                    )
+                }
             )
         }
     }
