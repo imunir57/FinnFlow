@@ -1,5 +1,6 @@
 package com.finnflow.data.repository
 
+import com.finnflow.data.db.dao.MonthlyCategoryTotal
 import com.finnflow.data.db.dao.MonthlyTotal
 import com.finnflow.data.db.dao.TransactionDao
 import com.finnflow.data.db.entity.TransactionEntity
@@ -24,6 +25,9 @@ interface TransactionRepository {
     fun getTransactionsByMonth(yearMonth: String): Flow<List<Transaction>>
     fun getTransactionsByDateRange(from: LocalDate, to: LocalDate): Flow<List<Transaction>>
     fun getMonthlyTotalsByYear(year: String, transactionType: TransactionType): Flow<List<MonthlyTotal>>
+    fun getMonthlyCategoryTotals(
+        year: String, transactionType: TransactionType
+    ): Flow<List<MonthlyCategoryTotal>>
     fun getCategorySummary(from: LocalDate, to: LocalDate, type: TransactionType): Flow<List<CategorySummary>>
     fun getSubCategorySummary(
         categoryId: Long, from: LocalDate, to: LocalDate, type: TransactionType
@@ -117,6 +121,17 @@ class TransactionRepositoryImpl @Inject constructor(
         SecureLogger.d(TAG, "Starting getMonthlyTotalsByYear for year: $year, type: $transactionType")
         return dao.getMonthlyTotalsByYear(year, transactionType).map { list ->
             SecureLogger.d(TAG, "Retrieved ${list.size} monthly totals for year: $year, type: $transactionType")
+            list
+        }
+    }
+
+    override fun getMonthlyCategoryTotals(
+        year: String,
+        transactionType: TransactionType
+    ): Flow<List<MonthlyCategoryTotal>> {
+        SecureLogger.d(TAG, "Starting getMonthlyCategoryTotals for year: $year, type: $transactionType")
+        return dao.getMonthlyCategoryTotals(year, transactionType).map { list ->
+            SecureLogger.d(TAG, "Retrieved ${list.size} monthly category totals for year: $year, type: $transactionType")
             list
         }
     }
