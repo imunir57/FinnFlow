@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.FinnFlowTheme
 import kotlinx.coroutines.flow.collectLatest
 
@@ -63,8 +64,10 @@ fun OnboardingScreen(
                     .background(FinnFlowTheme.colors.heroGradient)
                     .padding(28.dp)
             ) {
+                // Onboarding runs before the user has chosen anything, so this resolves to
+                // the profile's default currency (BDT) rather than rendering blank.
                 Text(
-                    "৳",
+                    LocalCurrencyFormat.current.symbol,
                     fontSize = 120.sp,
                     fontFamily = FontFamily.Serif,
                     color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),

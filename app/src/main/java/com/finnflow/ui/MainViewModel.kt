@@ -3,6 +3,7 @@ package com.finnflow.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finnflow.data.logger.SecureLogger
+import com.finnflow.data.model.Currency
 import com.finnflow.data.profile.UserProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +43,16 @@ class MainViewModel @Inject constructor(
             mode
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "system")
+
+    // Seeds LocalCurrencyFormat for the whole composition, so a change in Settings reaches
+    // every screen without a restart.
+    val currency = profileRepository.profile
+        .map { profile ->
+            val currency = Currency.fromCode(profile.currencyCode)
+            SecureLogger.d(TAG, "Currency loaded: ${currency.code}")
+            currency
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Currency.BDT)
 
     val appLockEnabled = profileRepository.profile
         .map { profile ->

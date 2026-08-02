@@ -37,10 +37,21 @@ data class CategoryWithSubCategories(
     val subCategories: List<SubCategory>
 )
 
-/** Aggregated result used by StatsRepository */
+/**
+ * Aggregated result used by StatsRepository.
+ *
+ * [colorHex] is the owning category's stored colour, carried through so the donut, legend and
+ * category table can draw a category in the colour the user picked for it — the same colour the
+ * Categories screen shows. Charts must not colour categories positionally: a positional palette
+ * wraps and repeats once there are more categories than palette entries.
+ *
+ * This is a query projection, not a Room entity — it maps a `SELECT` shape, so adding a field
+ * here needs no schema version bump or migration.
+ */
 data class CategorySummary(
     val categoryId: Long,
     val categoryName: String,
+    val colorHex: String,
     val totalAmount: Double,
     val transactionCount: Int
 )

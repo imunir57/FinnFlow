@@ -25,10 +25,10 @@ class StatsViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var repo: TransactionRepository
 
-    private val incomeSummaries = listOf(CategorySummary(1, "Salary", 3000.0, 1))
+    private val incomeSummaries = listOf(CategorySummary(1, "Salary", "#4CAF50", 3000.0, 1))
     private val expenseSummaries = listOf(
-        CategorySummary(2, "Food", 500.0, 10),
-        CategorySummary(3, "Transport", 200.0, 5)
+        CategorySummary(2, "Food", "#FF9800", 500.0, 10),
+        CategorySummary(3, "Transport", "#3F51B5", 200.0, 5)
     )
 
     @Before

@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,10 +24,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.finnflow.ui.AmountStyle
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.*
 import kotlin.math.roundToInt
-
-private fun fmtAmount(n: Double): String = "%,.0f".format(n)
 
 private val WEEKDAY_ABBREV = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
 private val WEEKDAY_FULL = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
@@ -48,12 +47,15 @@ fun InsightsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
+                .padding(start = 4.dp, end = 18.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            // The back button keeps this row at the 48.dp touch-target height, so removing the
+            // trailing overflow button needs no vertical compensation — only end padding, so the
+            // title no longer runs to the screen edge.
             Text(
                 "Insights",
                 fontFamily = FontFamily.Serif,
@@ -61,9 +63,6 @@ fun InsightsScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = {}) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
         }
 
         Row(
@@ -117,6 +116,8 @@ private fun HeroCard(state: InsightsUiState) {
     val rate = state.savingsRate
     val net = state.net
     val monthName = state.monthLabel.substringBefore(" ")
+    // Insights is dense, so every figure here is whole-unit and tight against its symbol.
+    val money = LocalCurrencyFormat.current
 
     val heroGradient = FinnFlowTheme.colors.heroGradient
     val heroText = FinnFlowTheme.colors.heroOnSurface
@@ -124,9 +125,11 @@ private fun HeroCard(state: InsightsUiState) {
                     else FinnFlowTheme.colors.heroExpense
     val message = when {
         rate >= 30 -> "Strong month — you held back nearly a third of what came in."
-        rate >= 10 -> "Net ৳${fmtAmount(net)} saved so far. On track for a positive close."
+        rate >= 10 -> "Net ${money.format(net, AmountStyle.Whole, spaced = false)} saved so far. " +
+                "On track for a positive close."
         rate >= 0  -> "Thin margin — most of what you earned went out again."
-        else       -> "Overspent by ৳${fmtAmount(-net)} — review big-ticket items below."
+        else       -> "Overspent by ${money.format(-net, AmountStyle.Whole, spaced = false)} — " +
+                "review big-ticket items below."
     }
 
     Box(
@@ -225,10 +228,11 @@ private fun IncomeExpenseBarCard(state: InsightsUiState) {
     val max = maxOf(state.income, state.expense, 1.0)
     val net = state.net
     val savingsRate = state.savingsRate
+    val money = LocalCurrencyFormat.current
     val caption = if (savingsRate > 0)
         "Saved ${savingsRate.roundToInt()}% of income"
     else
-        "Overspent — net ৳${fmtAmount(-net)}"
+        "Overspent — net ${money.format(-net, AmountStyle.Whole, spaced = false)}"
 
     InsightCard(title = "Income vs Expense", caption = caption) {
         Spacer(Modifier.height(10.dp))
@@ -254,13 +258,13 @@ private fun IncomeExpenseBarCard(state: InsightsUiState) {
                     letterSpacing = (-0.3).sp
                 )
                 Text(
-                    "৳",
+                    money.symbol,
                     fontSize = 13.sp,
                     color = netColor.copy(alpha = 0.55f),
                     modifier = Modifier.padding(horizontal = 1.dp)
                 )
                 Text(
-                    fmtAmount(Math.abs(net)),
+                    money.amount(Math.abs(net), AmountStyle.Whole),
                     fontFamily = FontFamily.Serif,
                     fontSize = 22.sp,
                     color = netColor,
@@ -273,6 +277,7 @@ private fun IncomeExpenseBarCard(state: InsightsUiState) {
 
 @Composable
 private fun BarLine(label: String, value: Double, max: Double, color: Color) {
+    val money = LocalCurrencyFormat.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -280,8 +285,8 @@ private fun BarLine(label: String, value: Double, max: Double, color: Color) {
     ) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("৳", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 1.dp))
-            Text(fmtAmount(value), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(money.symbol, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 1.dp))
+            Text(money.amount(value, AmountStyle.Whole), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
         }
     }
     Spacer(Modifier.height(4.dp))
@@ -312,10 +317,12 @@ private fun DailyTrendCard(state: InsightsUiState) {
     val peakAmount = state.dailyTotals.getOrElse(state.peakDayIndex) { 0.0 }
     val todayAmount = state.dailyTotals.getOrElse(state.todayDayIndex) { 0.0 }
     val quietestIdx = state.quietestDayIndex
+    val money = LocalCurrencyFormat.current
+    fun whole(value: Double) = money.format(value, AmountStyle.Whole, spaced = false)
 
     InsightCard(
         title = "Daily spend trend",
-        caption = "Avg ৳${fmtAmount(state.avgDailySpend)} / day · ${state.daysRecorded} days in"
+        caption = "Avg ${whole(state.avgDailySpend)} / day · ${state.daysRecorded} days in"
     ) {
         Spacer(Modifier.height(10.dp))
         SparklineCanvas(
@@ -358,7 +365,7 @@ private fun DailyTrendCard(state: InsightsUiState) {
             MiniStat(
                 label = "Peak day",
                 value = "$monthAbbrev $peakDay",
-                sub = "৳${fmtAmount(peakAmount)}",
+                sub = whole(peakAmount),
                 modifier = Modifier.weight(1f)
             )
             Box(
@@ -371,7 +378,7 @@ private fun DailyTrendCard(state: InsightsUiState) {
             MiniStat(
                 label = "Quietest",
                 value = if (quietestIdx >= 0) "$monthAbbrev ${quietestIdx + 1}" else "—",
-                sub = if (quietestIdx >= 0) "৳${fmtAmount(state.dailyTotals[quietestIdx])}" else "",
+                sub = if (quietestIdx >= 0) whole(state.dailyTotals[quietestIdx]) else "",
                 modifier = Modifier.weight(1f)
             )
             Box(
@@ -383,7 +390,7 @@ private fun DailyTrendCard(state: InsightsUiState) {
             )
             MiniStat(
                 label = "Today",
-                value = "৳${fmtAmount(todayAmount)}",
+                value = whole(todayAmount),
                 sub = if (todayAmount > state.avgDailySpend) "above avg" else "below avg",
                 valueColor = if (todayAmount > state.avgDailySpend) FinnFlowTheme.colors.expense else FinnFlowTheme.colors.income,
                 modifier = Modifier.weight(1f)
@@ -476,6 +483,7 @@ private fun SparklineCanvas(
 @Composable
 private fun HighlightsCard(state: InsightsUiState) {
     val dateFmt = java.time.format.DateTimeFormatter.ofPattern("MMM d")
+    val money = LocalCurrencyFormat.current
 
     InsightCard(title = "Highlights", caption = "What stood out this month") {
         Spacer(Modifier.height(8.dp))
@@ -483,7 +491,7 @@ private fun HighlightsCard(state: InsightsUiState) {
             if (state.biggestExpenseAmount > 0) {
                 HighlightRow(
                     label = "Biggest single expense",
-                    primary = "৳${fmtAmount(state.biggestExpenseAmount)}",
+                    primary = money.format(state.biggestExpenseAmount, AmountStyle.Whole, spaced = false),
                     sub = buildString {
                         if (state.biggestExpenseCategoryName.isNotEmpty()) append(state.biggestExpenseCategoryName)
                         state.biggestExpenseDate?.let { if (isNotEmpty()) append(" · "); append(it.format(dateFmt)) }
@@ -501,7 +509,8 @@ private fun HighlightsCard(state: InsightsUiState) {
                 HighlightRow(
                     label = "Biggest jump vs last month",
                     primary = state.biggestMoMCategoryName,
-                    sub = "+৳${fmtAmount(state.biggestMoMDelta)} vs previous month",
+                    sub = "+${money.format(state.biggestMoMDelta, AmountStyle.Whole, spaced = false)} " +
+                            "vs previous month",
                     arrowUp = true
                 )
             }

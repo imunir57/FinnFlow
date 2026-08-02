@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +31,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.AmountStyle
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.FinnFlowTheme
+import com.finnflow.ui.theme.rememberCategoryColor
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -49,7 +51,6 @@ fun StatsScreen(
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val sliceColors = FinnFlowTheme.colors.chartSlices
     var showPicker     by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker   by remember { mutableStateOf(false) }
@@ -118,27 +119,17 @@ fun StatsScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         // ── Title bar ─────────────────────────────────────────────────────
-        Row(
+        // Padding replaces the height the removed overflow IconButton used to contribute
+        // (48.dp touch target), so the title keeps its original vertical rhythm.
+        Text(
+            "Statistics",
+            fontFamily = FontFamily.Serif,
+            fontSize = 26.sp,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Statistics",
-                fontFamily = FontFamily.Serif,
-                fontSize = 26.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = {}) {
-                Icon(
-                    Icons.Default.MoreVert,
-                    "Menu",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+                .padding(start = 18.dp, end = 18.dp, top = 18.dp, bottom = 14.dp)
+        )
 
         // ── Range tabs (underline style) ──────────────────────────────────
         RangeTabsRow(period = state.period, onPeriodChange = viewModel::onPeriodChange)
@@ -231,10 +222,8 @@ fun StatsScreen(
             } else {
                 items(state.activeSummary.size) { index ->
                     val summary = state.activeSummary[index]
-                    val color   = sliceColors[index % sliceColors.size]
                     CategoryListRow(
                         summary = summary,
-                        color   = color,
                         percentInt = state.percentOf(summary.totalAmount),
                         onClick = {
                             onNavigateToCategory(summary.categoryId, state.from, state.to, state.selectedType)
@@ -425,8 +414,10 @@ private fun DonutChartSection(
     val strokeWidth = 80f
     val chartSize   = 220.dp
     val ffColors    = FinnFlowTheme.colors
-    val sliceColors = ffColors.chartSlices
     val emptyTrack  = MaterialTheme.colorScheme.outlineVariant
+    // Resolved outside the Canvas: the draw lambda is not a composable scope. Each slice uses its
+    // own category's stored colour, so the palette can never wrap and repeat.
+    val sliceColors = summaries.map { rememberCategoryColor(it.colorHex) }
 
     Box(
         modifier = Modifier
@@ -452,7 +443,7 @@ private fun DonutChartSection(
                 )
             } else {
                 summaries.forEachIndexed { index, summary ->
-                    val sliceColor = sliceColors[index % sliceColors.size]
+                    val sliceColor = sliceColors[index]
                     val sweep = if (totalAmount > 0)
                         (summary.totalAmount / totalAmount * 360f).toFloat() else 0f
                     drawArc(
@@ -492,15 +483,16 @@ private fun DonutChartSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(2.dp))
+            val money = LocalCurrencyFormat.current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "৳",
+                    money.symbol,
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(end = 2.dp)
                 )
                 Text(
-                    "%,.0f".format(totalAmount),
+                    money.amount(totalAmount, AmountStyle.Whole),
                     fontFamily = FontFamily.Serif,
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -515,7 +507,6 @@ private fun DonutChartSection(
 
 @Composable
 private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> Int) {
-    val sliceColors = FinnFlowTheme.colors.chartSlices
     val chunked = summaries.chunked(2)
     Column(
         modifier = Modifier
@@ -523,16 +514,15 @@ private fun LegendRow(summaries: List<CategorySummary>, percentOf: (Double) -> I
             .padding(horizontal = 18.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        chunked.forEachIndexed { rowIndex, pair ->
+        chunked.forEach { pair ->
             // Gap between the two legend columns — without it the left column's percentage
             // collides with the right column's swatch and clips its label.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                pair.forEachIndexed { colIndex, summary ->
-                    val globalIndex = rowIndex * 2 + colIndex
-                    val color = sliceColors[globalIndex % sliceColors.size]
+                pair.forEach { summary ->
+                    val color = rememberCategoryColor(summary.colorHex)
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
@@ -615,10 +605,10 @@ private fun InsightsEntryCard(onClick: () -> Unit) {
 @Composable
 private fun CategoryListRow(
     summary: CategorySummary,
-    color: Color,
     percentInt: Int,
     onClick: () -> Unit
 ) {
+    val color = rememberCategoryColor(summary.colorHex)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -646,7 +636,7 @@ private fun CategoryListRow(
                 )
             }
             Text(
-                "৳ ${"%,.0f".format(summary.totalAmount)}",
+                LocalCurrencyFormat.current.format(summary.totalAmount, AmountStyle.Whole),
                 fontSize = 14.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface

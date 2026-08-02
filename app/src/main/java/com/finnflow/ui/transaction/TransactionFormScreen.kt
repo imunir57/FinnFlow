@@ -29,6 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -317,7 +318,7 @@ fun TransactionFormScreen(
                         verticalAlignment = Alignment.Bottom
                     ) {
                         Text(
-                            "৳",
+                            LocalCurrencyFormat.current.symbol,
                             fontSize = 30.sp,
                             fontFamily = FontFamily.Serif,
                             color = amountColor.copy(alpha = 0.5f),
@@ -684,11 +685,11 @@ private fun Numpad(
     }
 }
 
-/** Grouped, for display: 1234.5 → "1,234.50". */
-private fun formatCalcDisplay(value: Double): String =
-    if (value == kotlin.math.floor(value)) "%,.0f".format(value) else "%,.2f".format(value)
-
-/** Ungrouped, for handing back to the amount field, which parses with toDouble(). */
+/**
+ * Ungrouped, for handing back to the amount field, which parses with toDouble().
+ * Deliberately not routed through [com.finnflow.ui.CurrencyFormat] — this is a machine-readable
+ * value, not a rendered one, and grouping separators would break the parse.
+ */
 private fun formatCalcAmount(value: Double): String =
     if (value == kotlin.math.floor(value)) value.toLong().toString() else "%.2f".format(value)
 
@@ -730,7 +731,11 @@ private fun CalculatorView(
                     maxLines = 1
                 )
                 if (result != null && expr.isNotEmpty()) {
-                    Text("= ${formatCalcDisplay(result)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "= ${LocalCurrencyFormat.current.amount(result)}",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

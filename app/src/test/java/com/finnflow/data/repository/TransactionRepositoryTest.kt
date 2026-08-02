@@ -90,7 +90,7 @@ class TransactionRepositoryTest {
 
     @Test
     fun getCategorySummary_delegatesToDao() = runTest {
-        val summaries = listOf(CategorySummary(1L, "Food", 300.0, 3))
+        val summaries = listOf(CategorySummary(1L, "Food", "#FF9800", 300.0, 3))
         every { dao.getCategorySummary(any(), any(), any()) } returns flowOf(summaries)
         repo.getCategorySummary(date, date, TransactionType.EXPENSE).test {
             assertEquals(summaries, awaitItem())

@@ -37,7 +37,9 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.theme.*
+import kotlinx.coroutines.flow.collectLatest
 
 private const val TAG = "CategoryScreen"
 
@@ -100,6 +102,17 @@ fun CategoryScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
+    // Holds the category awaiting confirmation rather than a bare flag, so the dialog
+    // survives recomposition and always names the row the user actually tapped.
+    var pendingDelete by remember { mutableStateOf<Category?>(null) }
+
+    // A delete refused by the ON DELETE RESTRICT foreign key has no other visible effect —
+    // the dialog closes and the row stays. Without this the user is left guessing.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.messages.collectLatest { snackbarHostState.showSnackbar(it) }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -108,10 +121,12 @@ fun CategoryScreen(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // ── Top bar ───────────────────────────────────────────────────
+            // Back arrow + title only: adding a category is the FAB's job, and a second
+            // "+" here was redundant. Padding matches the Profile / About title rows.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 18.dp, top = 8.dp, bottom = 6.dp),
+                    .padding(start = 4.dp, end = 18.dp, top = 10.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onNavigateBack) {
@@ -121,15 +136,8 @@ fun CategoryScreen(
                     "Categories",
                     fontFamily = FontFamily.Serif,
                     fontSize = 26.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                IconButton(onClick = {
-                    SecureLogger.d(TAG, "User clicked Add category button (top bar)")
-                    viewModel.openEditSheet(null)
-                }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add category", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
 
             // ── Type toggle ───────────────────────────────────────────────
@@ -247,12 +255,46 @@ fun CategoryScreen(
                 viewModel.closeEditSheet()
             },
             onDelete = { cat ->
-                SecureLogger.d(TAG, "User deleted category: id=${cat.id}, name=${cat.name}")
-                viewModel.deleteCategory(cat)
+                SecureLogger.d(TAG, "User requested delete of category: id=${cat.id}, name=${cat.name}")
                 viewModel.closeEditSheet()
+                pendingDelete = cat
             }
         )
     }
+
+    // ── Delete confirmation ───────────────────────────────────────────────
+    // Copy reflects what the schema actually does: sub_categories cascade-delete with
+    // their parent, while transactions.categoryId is ON DELETE RESTRICT — a category
+    // that is still referenced by a transaction cannot be removed at all.
+    pendingDelete?.let { cat ->
+        val subCount = state.displayItems.firstOrNull { it.category.id == cat.id }?.subCount ?: 0
+        val subClause = when (subCount) {
+            0 -> ""
+            1 -> " and its 1 sub-category"
+            else -> " and its $subCount sub-categories"
+        }
+        ConfirmationDialog(
+            title = "Delete \"${cat.name}\"?",
+            message = "\"${cat.name}\"$subClause will be permanently deleted. This can't be " +
+                    "undone. Your transactions are never deleted — but a category still used " +
+                    "by one can't be removed.",
+            confirmLabel = "Delete",
+            onConfirm = {
+                SecureLogger.d(TAG, "User confirmed delete of category: id=${cat.id}")
+                viewModel.deleteCategory(cat)
+                pendingDelete = null
+            },
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled delete of category: id=${cat.id}")
+                pendingDelete = null
+            }
+        )
+    }
+
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier.fillMaxSize().wrapContentHeight(Alignment.Bottom)
+    )
 }
 
 // ── Type toggle ───────────────────────────────────────────────────────────────
@@ -718,6 +760,10 @@ fun SubCategoryScreen(
     val state by viewModel.state.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // Pending sub-category, hoisted out of the list item so the confirmation is not tied
+    // to a row that may be recomposed or recycled underneath it.
+    var pendingDelete by remember { mutableStateOf<SubCategory?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -747,8 +793,8 @@ fun SubCategoryScreen(
                         viewModel.updateSubCategory(it)
                     },
                     onDelete    = {
-                        SecureLogger.d(TAG, "User deleted sub-category: id=${it.id}, name=${it.name}")
-                        viewModel.deleteSubCategory(it)
+                        SecureLogger.d(TAG, "User requested delete of sub-category: id=${it.id}, name=${it.name}")
+                        pendingDelete = it
                     }
                 )
                 HorizontalDivider()
@@ -782,6 +828,26 @@ fun SubCategoryScreen(
                 ) { Text("Add") }
             },
             dismissButton = { TextButton(onClick = { showAddDialog = false }) { Text("Cancel") } }
+        )
+    }
+
+    // transactions.subCategoryId is ON DELETE SET NULL, so the transactions themselves
+    // survive — they simply lose this label and keep their parent category.
+    pendingDelete?.let { sub ->
+        ConfirmationDialog(
+            title = "Delete \"${sub.name}\"?",
+            message = "This sub-category will be permanently deleted. Transactions filed " +
+                    "under it are kept — they stay in their category but lose this label.",
+            confirmLabel = "Delete",
+            onConfirm = {
+                SecureLogger.d(TAG, "User confirmed delete of sub-category: id=${sub.id}")
+                viewModel.deleteSubCategory(sub)
+                pendingDelete = null
+            },
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled delete of sub-category: id=${sub.id}")
+                pendingDelete = null
+            }
         )
     }
 }
