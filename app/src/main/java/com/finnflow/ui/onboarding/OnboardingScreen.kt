@@ -10,9 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
@@ -22,9 +19,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.WarmPaper
+import com.finnflow.ui.theme.FinnFlowTheme
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -48,7 +43,7 @@ fun OnboardingScreen(
     }
 
     Scaffold(
-        containerColor = WarmPaper,
+        containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
@@ -65,31 +60,21 @@ fun OnboardingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color(0xFF1A2820),
-                                0.4f to Color(0xFF1E1916),
-                                1.0f to Color(0xFF241410)
-                            ),
-                            start = Offset(0f, 0f),
-                            end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                        )
-                    )
+                    .background(FinnFlowTheme.colors.heroGradient)
                     .padding(28.dp)
             ) {
                 Text(
                     "৳",
                     fontSize = 120.sp,
                     fontFamily = FontFamily.Serif,
-                    color = Color.White.copy(alpha = 0.05f),
+                    color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
                     modifier = Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-20).dp)
                 )
                 Column {
                     Text(
                         "Welcome to",
                         fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = FinnFlowTheme.colors.heroOnSurfaceVariant,
                         letterSpacing = 0.5.sp
                     )
                     Text(
@@ -97,13 +82,13 @@ fun OnboardingScreen(
                         fontSize = 36.sp,
                         fontFamily = FontFamily.Serif,
                         fontWeight = FontWeight.Normal,
-                        color = Color.White
+                        color = FinnFlowTheme.colors.heroOnSurface
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "Track your money, your way.",
                         fontSize = 13.sp,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = FinnFlowTheme.colors.heroOnSurfaceVariant
                     )
                 }
             }
@@ -121,7 +106,9 @@ fun OnboardingScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                placeholder = { Text("Your name", color = InkFaint) },
+                placeholder = {
+                    Text("Your name", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
@@ -134,8 +121,11 @@ fun OnboardingScreen(
                     viewModel.onGetStarted(name)
                 }),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = IncomeGreen,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    cursorColor = MaterialTheme.colorScheme.primary
                 )
             )
 
@@ -145,7 +135,10 @@ fun OnboardingScreen(
                 onClick = { viewModel.onGetStarted(name) },
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -153,7 +146,11 @@ fun OnboardingScreen(
             Spacer(Modifier.height(12.dp))
 
             TextButton(onClick = viewModel::onSkip) {
-                Text("Skip for now", color = InkFaint, fontSize = 13.sp)
+                Text(
+                    "Skip for now",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
             }
 
             Spacer(Modifier.weight(1f))
@@ -161,7 +158,10 @@ fun OnboardingScreen(
             OutlinedButton(
                 onClick = { viewModel.onSignInWithGoogle(context, name) },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
             ) {
                 Text("Sign in with Google", fontSize = 14.sp)
             }
@@ -169,7 +169,7 @@ fun OnboardingScreen(
             Text(
                 "For a signed-in profile — no cloud sync yet",
                 fontSize = 11.sp,
-                color = InkFaint,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
         }

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -23,10 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmPaper
 
 /** A single selectable option shown in an [OptionPickerSheet]. */
 data class PickerOption(
@@ -52,7 +49,7 @@ fun OptionPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = WarmPaper
+        containerColor = MaterialTheme.colorScheme.surface
     ) {
         LazyColumn {
             items(options, key = { it.value }) { option ->
@@ -72,17 +69,25 @@ fun OptionPickerSheet(
                             option.label,
                             fontSize = 15.sp,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = Ink
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (option.subtitle != null) {
-                            Text(option.subtitle, fontSize = 12.sp, color = InkMedium)
+                            Text(
+                                option.subtitle,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                     if (isSelected) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = Ink)
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
-                Divider(color = Rule, thickness = 0.5.dp)
+                Divider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
             }
         }
     }

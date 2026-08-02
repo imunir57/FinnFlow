@@ -4,7 +4,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.finnflow.ui.theme.ExpenseClay
+import com.finnflow.ui.theme.FinnFlowTheme
 
 /**
  * Shared confirmation dialog for destructive settings actions (restore, sign out, etc).
@@ -24,7 +24,7 @@ fun ConfirmationDialog(
         text = { Text(message) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(confirmLabel, color = ExpenseClay)
+                Text(confirmLabel, color = FinnFlowTheme.colors.expense)
             }
         },
         dismissButton = {

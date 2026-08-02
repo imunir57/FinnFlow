@@ -29,15 +29,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.TransactionType
-import com.finnflow.ui.theme.ExpenseClay
-import com.finnflow.ui.theme.IncomeGreen
-import com.finnflow.ui.theme.Ink
-import com.finnflow.ui.theme.InkFaint
-import com.finnflow.ui.theme.InkMedium
-import com.finnflow.ui.theme.Rule
-import com.finnflow.ui.theme.WarmCard
-import com.finnflow.ui.theme.WarmPaper
-import com.finnflow.ui.theme.WarmSurface
+import com.finnflow.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -66,10 +58,6 @@ private fun Modifier.sectionAnchor(
 ) = onGloballyPositioned {
     anchors[section] = SectionBounds(it.positionInWindow().y, it.size.height)
 }
-
-private fun parseCatColor(hex: String): Color = try {
-    Color(android.graphics.Color.parseColor(hex))
-} catch (_: Exception) { Color(0xFF607D8B) }
 
 private fun safeEval(expr: String): Double? = try {
     val tokens = buildList<String> {
@@ -191,7 +179,7 @@ fun TransactionFormScreen(
         "Pick"      to state.date
     )
 
-    val amountColor = if (state.type == TransactionType.INCOME) IncomeGreen else Ink
+    val amountColor = if (state.type == TransactionType.INCOME) FinnFlowTheme.colors.income else MaterialTheme.colorScheme.onSurface
 
     // Date picker dialog
     if (showDatePicker) {
@@ -216,7 +204,7 @@ fun TransactionFormScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WarmPaper)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // ── Top bar ──────────────────────────────────────────────────────
         Row(
@@ -227,13 +215,13 @@ fun TransactionFormScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(onClick = if (showCalc) { { showCalc = false } } else onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Ink)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
             }
             Text(
                 if (showCalc) "Calculator" else "New transaction",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink
+                color = MaterialTheme.colorScheme.onSurface
             )
             TextButton(
                 onClick = {
@@ -246,7 +234,7 @@ fun TransactionFormScreen(
                 else Text(
                     "Save",
                     fontWeight = FontWeight.SemiBold,
-                    color = if (state.isValid && !showCalc) Ink else InkFaint
+                    color = if (state.isValid && !showCalc) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -278,7 +266,7 @@ fun TransactionFormScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(999.dp))
-                            .background(WarmSurface)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             .padding(3.dp)
                     ) {
                         Row {
@@ -295,11 +283,11 @@ fun TransactionFormScreen(
                                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(999.dp))
-                                        .background(if (active) Ink else Color.Transparent)
+                                        .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
                                 ) {
                                     Text(
                                         type.name.lowercase().replaceFirstChar { it.uppercase() },
-                                        color = if (active) WarmPaper else InkMedium,
+                                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                                         fontSize = 13.sp
                                     )
@@ -340,7 +328,7 @@ fun TransactionFormScreen(
                             fontSize = 60.sp,
                             fontFamily = FontFamily.Serif,
                             fontWeight = FontWeight.Normal,
-                            color = if (state.amount.isEmpty()) InkFaint else amountColor,
+                            color = if (state.amount.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else amountColor,
                             lineHeight = 60.sp
                         )
                     }
@@ -348,7 +336,7 @@ fun TransactionFormScreen(
                         if (showNumpad) "Tap keypad below — or use calculator"
                         else "Tap the amount to edit",
                         fontSize = 11.sp,
-                        color = InkFaint,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 0.3.sp
                     )
                 }
@@ -383,13 +371,13 @@ fun TransactionFormScreen(
                                         label,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = if (active) WarmPaper else Ink
+                                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (index < 3) {
                                         Text(
                                             date.format(DateTimeFormatter.ofPattern("MMM d")),
                                             fontSize = 10.sp,
-                                            color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
+                                            color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     } else {
                                         Text(
@@ -397,7 +385,7 @@ fun TransactionFormScreen(
                                                 state.date.format(DateTimeFormatter.ofPattern("MMM d"))
                                             else "···",
                                             fontSize = 10.sp,
-                                            color = if (active) WarmPaper.copy(alpha = 0.7f) else InkFaint
+                                            color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
@@ -415,7 +403,7 @@ fun TransactionFormScreen(
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             state.categories.forEach { cat ->
                                 val active = cat.id == state.categoryId
-                                val catColor = parseCatColor(cat.colorHex)
+                                val catColor = rememberCategoryColor(cat.colorHex)
                                 CategoryChip(cat = cat, catColor = catColor, active = active) {
                                     SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
                                     viewModel.onCategoryChange(cat.id)
@@ -459,7 +447,7 @@ fun TransactionFormScreen(
                     OutlinedTextField(
                         value = state.note,
                         onValueChange = viewModel::onNoteChange,
-                        placeholder = { Text("e.g. Dinner with friends", color = InkFaint, fontSize = 14.sp) },
+                        placeholder = { Text("e.g. Dinner with friends", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                         modifier = Modifier
                             .fillMaxWidth()
                             // The soft keyboard and the numpad must never fight for the
@@ -468,10 +456,10 @@ fun TransactionFormScreen(
                         maxLines = 2,
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor   = Ink,
-                            unfocusedBorderColor = Rule,
-                            focusedTextColor     = Ink,
-                            unfocusedTextColor   = Ink
+                            focusedBorderColor   = MaterialTheme.colorScheme.onSurface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedTextColor     = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor   = MaterialTheme.colorScheme.onSurface
                         )
                     )
                 }
@@ -502,7 +490,7 @@ private fun FormLabel(text: String) {
         text.uppercase(),
         fontSize = 10.sp,
         letterSpacing = 1.sp,
-        color = InkFaint,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 10.dp)
     )
 }
@@ -517,8 +505,8 @@ private fun ChipButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(if (active) Ink else WarmPaper)
-            .then(if (!active) Modifier.border(1.dp, Rule, RoundedCornerShape(14.dp)) else Modifier),
+            .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background)
+            .then(if (!active) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)) else Modifier),
         contentAlignment = Alignment.Center
     ) {
         TextButton(
@@ -535,7 +523,7 @@ private fun CategoryChip(cat: Category, catColor: Color, active: Boolean, onClic
         modifier = Modifier
             .padding(bottom = 8.dp)
             .clip(RoundedCornerShape(999.dp))
-            .background(if (active) catColor.copy(alpha = 0.14f) else WarmPaper)
+            .background(if (active) catColor.copy(alpha = 0.14f) else MaterialTheme.colorScheme.background)
     ) {
         TextButton(
             onClick = onClick,
@@ -554,7 +542,7 @@ private fun CategoryChip(cat: Category, catColor: Color, active: Boolean, onClic
             Text(
                 cat.name,
                 fontSize = 13.sp,
-                color = if (active) catColor else InkMedium,
+                color = if (active) catColor else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
             )
         }
@@ -567,8 +555,8 @@ private fun SubChip(label: String, active: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .padding(bottom = 8.dp)
             .clip(RoundedCornerShape(999.dp))
-            .background(if (active) Ink else WarmPaper)
-            .then(if (!active) Modifier.border(1.dp, Rule, RoundedCornerShape(999.dp)) else Modifier)
+            .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background)
+            .then(if (!active) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp)) else Modifier)
     ) {
         TextButton(
             onClick = onClick,
@@ -577,7 +565,7 @@ private fun SubChip(label: String, active: Boolean, onClick: () -> Unit) {
             Text(
                 label,
                 fontSize = 12.5.sp,
-                color = if (active) WarmPaper else InkMedium,
+                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
             )
         }
@@ -614,7 +602,7 @@ private fun Numpad(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(WarmCard)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(vertical = 6.dp, horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -638,8 +626,8 @@ private fun Numpad(
                                 modifier = Modifier.fillMaxSize(),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.textButtonColors(
-                                    containerColor = Ink,
-                                    contentColor = WarmPaper
+                                    containerColor = MaterialTheme.colorScheme.onSurface,
+                                    contentColor = MaterialTheme.colorScheme.background
                                 )
                             ) {
                                 Text(
@@ -669,22 +657,22 @@ private fun Numpad(
                                         key.value,
                                         fontSize = 26.sp,
                                         fontFamily = FontFamily.Serif,
-                                        color = Ink
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     NumKey.Decimal -> Text(
                                         ".",
                                         fontSize = 26.sp,
                                         fontFamily = FontFamily.Serif,
-                                        color = Ink
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
-                                    NumKey.Backspace -> Text("⌫", fontSize = 22.sp, color = InkMedium)
+                                    NumKey.Backspace -> Text("⌫", fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     NumKey.Clear -> Text(
                                         "C",
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = InkMedium
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    NumKey.Calc -> Text("⊞", fontSize = 20.sp, color = InkMedium)
+                                    NumKey.Calc -> Text("⊞", fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     else -> Unit
                                 }
                             }
@@ -725,12 +713,12 @@ private fun CalculatorView(
     // Done both evaluates and applies, so it only lights up on a usable result.
     val canApply = result != null && result > 0
 
-    Column(modifier = modifier.fillMaxWidth().background(WarmPaper)) {
+    Column(modifier = modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         // ── Expression display, pinned to the top ────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WarmCard)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.fillMaxWidth()) {
@@ -738,11 +726,11 @@ private fun CalculatorView(
                     expr.ifEmpty { "0" },
                     fontSize = 28.sp,
                     fontFamily = FontFamily.Serif,
-                    color = Ink,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
                 if (result != null && expr.isNotEmpty()) {
-                    Text("= ${formatCalcDisplay(result)}", fontSize = 14.sp, color = InkFaint)
+                    Text("= ${formatCalcDisplay(result)}", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -755,7 +743,7 @@ private fun CalculatorView(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WarmCard)
+                .background(MaterialTheme.colorScheme.surfaceContainer)
                 .padding(vertical = 4.dp, horizontal = 4.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
@@ -770,10 +758,10 @@ private fun CalculatorView(
                                     modifier = Modifier.fillMaxSize(),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.textButtonColors(
-                                        containerColor = Ink,
-                                        contentColor = WarmPaper,
-                                        disabledContainerColor = Rule,
-                                        disabledContentColor = InkFaint
+                                        containerColor = MaterialTheme.colorScheme.onSurface,
+                                        contentColor = MaterialTheme.colorScheme.background,
+                                        disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
+                                        disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 ) {
                                     Text(
@@ -800,7 +788,7 @@ private fun CalculatorView(
                                         key,
                                         fontSize = if (key.length == 1 && !key[0].isDigit() && key != ".") 20.sp else 24.sp,
                                         fontFamily = if (key[0].isDigit() || key == ".") FontFamily.Serif else FontFamily.Default,
-                                        color = if (isOp) InkMedium else Ink,
+                                        color = if (isOp) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                                         fontWeight = if (isOp) FontWeight.SemiBold else FontWeight.Normal
                                     )
                                 }
