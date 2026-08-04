@@ -71,6 +71,32 @@ interface TransactionDao {
     fun getCategorySummary(from: LocalDate, to: LocalDate, type: TransactionType): Flow<List<CategorySummary>>
 
     /**
+     * Per-category totals for every month of a year, in one pass.
+     *
+     * Yearly needs a category breakdown per month *and* for the year as a whole. Rather than
+     * thirteen queries, this returns the month-by-category grid and the year totals are folded
+     * from it in the ViewModel. Ordering puts the largest category first within each month, so
+     * taking the first N per month needs no further sorting.
+     *
+     * Same bare-column note as [getCategorySummary]: `c.name` / `c.colorHex` are constant within
+     * a `(month, categoryId)` group because the join fixes the category.
+     */
+    @Query("""
+        SELECT strftime('%m', t.date) as month, t.categoryId,
+               c.name as categoryName, c.colorHex as colorHex,
+               SUM(t.amount) as totalAmount
+        FROM transactions t
+        INNER JOIN categories c ON t.categoryId = c.id
+        WHERE strftime('%Y', t.date) = :year AND t.type = :type
+        GROUP BY month, t.categoryId
+        ORDER BY month ASC, totalAmount DESC
+    """)
+    fun getMonthlyCategoryTotals(
+        year: String,
+        type: TransactionType
+    ): Flow<List<MonthlyCategoryTotal>>
+
+    /**
      * Subcategory breakdown for a specific category in a date range.
      * LEFT JOIN so transactions without a subcategory appear as "Uncategorised".
      * subCategoryId is nullable — NULL means the user chose no subcategory.
@@ -124,3 +150,15 @@ interface TransactionDao {
 }
 
 data class MonthlyTotal(val month: String, val total: Double)
+
+/**
+ * One category's total within one month. [month] is the zero-padded `MM` produced by
+ * `strftime`, matching [MonthlyTotal.month].
+ */
+data class MonthlyCategoryTotal(
+    val month: String,
+    val categoryId: Long,
+    val categoryName: String,
+    val colorHex: String,
+    val totalAmount: Double
+)
