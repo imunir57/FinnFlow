@@ -30,6 +30,7 @@ import com.finnflow.ui.lock.AppLockScreen
 import com.finnflow.ui.onboarding.OnboardingScreen
 import com.finnflow.ui.profile.ProfileScreen
 import com.finnflow.ui.settings.AboutScreen
+import com.finnflow.ui.compare.CompareScreen
 import com.finnflow.ui.settings.SettingsScreen
 import com.finnflow.ui.insights.InsightsScreen
 import com.finnflow.ui.stats.CategoryDetailScreen
@@ -161,6 +162,10 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                     onNavigateToInsights = {
                         SecureLogger.d(TAG, "User navigating to Insights")
                         navController.navigate(Screen.Insights.route)
+                    },
+                    onNavigateToCompare = {
+                        SecureLogger.d(TAG, "User navigating to Compare")
+                        navController.navigate(Screen.Compare.route)
                     }
                 )
             }
@@ -169,6 +174,14 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 SecureLogger.d(TAG, "Navigating to Insights")
                 InsightsScreen(onBack = {
                     SecureLogger.d(TAG, "User navigating back from Insights")
+                    navController.popBackStack()
+                })
+            }
+
+            composable(Screen.Compare.route) {
+                SecureLogger.d(TAG, "Navigating to Compare")
+                CompareScreen(onNavigateBack = {
+                    SecureLogger.d(TAG, "User navigating back from Compare")
                     navController.popBackStack()
                 })
             }
