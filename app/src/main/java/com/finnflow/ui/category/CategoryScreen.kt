@@ -37,7 +37,10 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
+import com.finnflow.ui.components.CATEGORY_ICON_KEYS
+import com.finnflow.ui.components.CATEGORY_ICON_MAP
 import com.finnflow.ui.components.ConfirmationDialog
+import com.finnflow.ui.components.categoryIconFor
 import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
@@ -45,38 +48,13 @@ private const val TAG = "CategoryScreen"
 
 // ── Icon catalogue ────────────────────────────────────────────────────────────
 
-private val ICON_KEYS = listOf(
-    "utensils", "car", "home", "heart", "book", "bag",
-    "film", "phone", "sparkle", "gift", "bank", "wallet",
-    "briefcase", "laptop", "trending", "dots"
-)
 
-private val ICON_MAP: Map<String, ImageVector> = mapOf(
-    "utensils"  to Icons.Default.Restaurant,
-    "car"       to Icons.Default.DirectionsCar,
-    "home"      to Icons.Default.Home,
-    "heart"     to Icons.Default.Favorite,
-    "book"      to Icons.Default.MenuBook,
-    "bag"       to Icons.Default.ShoppingBag,
-    "film"      to Icons.Default.Movie,
-    "phone"     to Icons.Default.Phone,
-    "sparkle"   to Icons.Default.AutoAwesome,
-    "gift"      to Icons.Default.CardGiftcard,
-    "bank"      to Icons.Default.AccountBalance,
-    "wallet"    to Icons.Default.AccountBalanceWallet,
-    "briefcase" to Icons.Default.Work,
-    "laptop"    to Icons.Default.Laptop,
-    "trending"  to Icons.Default.TrendingUp,
-    "dots"      to Icons.Default.MoreHoriz,
-)
 
 private val COLOR_CHOICES = listOf(
     "#C44536", "#D18842", "#7A5C3E", "#6E8A4A", "#4A8A5C", "#2E8B94",
     "#3A6EA5", "#3E4A8A", "#7A4FA0", "#B5456E", "#B85A3E", "#556B74", "#8A8A8A"
 )
 
-private fun iconFor(key: String?): ImageVector =
-    if (key.isNullOrEmpty()) Icons.Default.MoreHoriz else ICON_MAP[key] ?: Icons.Default.MoreHoriz
 
 private fun Modifier.dashedBorder(width: Dp, color: Color, cornerRadius: Dp): Modifier =
     drawWithContent {
@@ -350,7 +328,7 @@ private fun CategoryRow(
 ) {
     val cat      = item.category
     val catColor = rememberCategoryColor(cat.colorHex as? String)
-    val icon     = remember(cat.iconName)  { iconFor(cat.iconName as? String) }
+    val icon     = remember(cat.iconName)  { categoryIconFor(cat.iconName as? String) }
 
     Row(
         modifier = Modifier
@@ -490,7 +468,7 @@ fun CategoryEditSheet(
 
     val sheetState   = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val previewColor = rememberCategoryColor(colorHex as? String)
-    val previewIcon  = remember(iconKey)  { iconFor(iconKey) }
+    val previewIcon  = remember(iconKey)  { categoryIconFor(iconKey) }
 
     ModalBottomSheet(
         onDismissRequest  = onClose,
@@ -605,14 +583,14 @@ fun CategoryEditSheet(
             Spacer(Modifier.height(16.dp))
             SheetFieldLabel("Icon")
             Spacer(Modifier.height(8.dp))
-            ICON_KEYS.chunked(8).forEach { rowKeys ->
+            CATEGORY_ICON_KEYS.chunked(8).forEach { rowKeys ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     rowKeys.forEach { key ->
                         val active = key == iconKey
-                        val ic     = ICON_MAP[key] ?: Icons.Default.MoreHoriz
+                        val ic     = CATEGORY_ICON_MAP[key] ?: Icons.Default.MoreHoriz
                         Box(
                             modifier = Modifier
                                 .weight(1f)

@@ -48,6 +48,7 @@ import kotlin.math.sin
 fun StatsScreen(
     onNavigateToCategory: (categoryId: Long, from: LocalDate, to: LocalDate, type: TransactionType) -> Unit,
     onNavigateToInsights: () -> Unit = {},
+    onNavigateToCompare: () -> Unit = {},
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -132,7 +133,11 @@ fun StatsScreen(
         )
 
         // ── Range tabs (underline style) ──────────────────────────────────
-        RangeTabsRow(period = state.period, onPeriodChange = viewModel::onPeriodChange)
+        RangeTabsRow(
+            period = state.period,
+            onPeriodChange = viewModel::onPeriodChange,
+            onNavigateToCompare = onNavigateToCompare
+        )
 
         // ── Range display: < label >  [Pick] ─────────────────────────────
         RangeDisplayRow(
@@ -245,7 +250,11 @@ private val StatsPeriod.label: String get() = when (this) {
 }
 
 @Composable
-private fun RangeTabsRow(period: StatsPeriod, onPeriodChange: (StatsPeriod) -> Unit) {
+private fun RangeTabsRow(
+    period: StatsPeriod,
+    onPeriodChange: (StatsPeriod) -> Unit,
+    onNavigateToCompare: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -277,6 +286,20 @@ private fun RangeTabsRow(period: StatsPeriod, onPeriodChange: (StatsPeriod) -> U
                         color = if (active) activeColor else inactiveColor
                     )
                 }
+            }
+            // Sits in the tab row per the design, but it is a destination rather than a
+            // period — it never takes the underline, and tapping it leaves the screen.
+            Box(
+                modifier = Modifier
+                    .clickable(onClick = onNavigateToCompare)
+                    .padding(top = 14.dp, bottom = 12.dp)
+            ) {
+                Text(
+                    "Compare",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = inactiveColor
+                )
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
