@@ -55,12 +55,20 @@ data class CategoryEntity(
     val name: String,
     val type: TransactionType,
     val iconName: String = "",
-    val colorHex: String = "#607D8B"
+    val colorHex: String = "#607D8B",
+    /**
+     * Retired, but kept so historical transactions keep their name, icon and colour.
+     *
+     * `transactions.categoryId` is ON DELETE RESTRICT, so a category in use cannot be deleted at
+     * all — archiving is what the UI's delete action does instead. Archived categories stay out
+     * of the pickers and still appear in Stats wherever they have amounts.
+     */
+    val isArchived: Boolean = false
 ) {
-    fun toDomain() = Category(id, name, type, iconName, colorHex)
+    fun toDomain() = Category(id, name, type, iconName, colorHex, isArchived)
 
     companion object {
-        fun fromDomain(c: Category) = CategoryEntity(c.id, c.name, c.type, c.iconName, c.colorHex)
+        fun fromDomain(c: Category) = CategoryEntity(c.id, c.name, c.type, c.iconName, c.colorHex, c.isArchived)
     }
 }
 
@@ -77,11 +85,20 @@ data class CategoryEntity(
 data class SubCategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val categoryId: Long,
-    val name: String
+    val name: String,
+    /**
+     * Retired, but kept so historical transactions keep this label.
+     *
+     * `transactions.subCategoryId` is ON DELETE SET NULL, so deleting outright would quietly
+     * turn every past entry into "Uncategorised". Archiving is what the UI's delete action does
+     * instead. Independent of the parent's flag: archiving a category leaves its sub-categories
+     * as they are, so restoring the parent brings back exactly what was there before.
+     */
+    val isArchived: Boolean = false
 ) {
-    fun toDomain() = SubCategory(id, categoryId, name)
+    fun toDomain() = SubCategory(id, categoryId, name, isArchived)
 
     companion object {
-        fun fromDomain(s: SubCategory) = SubCategoryEntity(s.id, s.categoryId, s.name)
+        fun fromDomain(s: SubCategory) = SubCategoryEntity(s.id, s.categoryId, s.name, s.isArchived)
     }
 }

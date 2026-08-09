@@ -12,18 +12,37 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Categories are archived, never deleted.
+ *
+ * Both tables are referenced by `transactions`, so removing a row either fails outright
+ * (`categoryId` is ON DELETE RESTRICT) or silently rewrites history (`subCategoryId` is
+ * ON DELETE SET NULL). Archiving retires a category from the pickers while every past
+ * transaction keeps the label it was filed under, and Stats keeps reporting it wherever it
+ * has amounts.
+ */
 interface CategoryRepository {
     suspend fun addCategory(category: Category): Long
     suspend fun updateCategory(category: Category)
-    suspend fun deleteCategory(category: Category)
+    suspend fun setCategoryArchived(categoryId: Long, archived: Boolean)
     suspend fun getCategoryById(id: Long): Category?
+
+    /** Every category, archived included — for resolving a transaction's category by id. */
     fun getAllCategories(): Flow<List<Category>>
+
+    /** Pickable categories of a type, archived ones excluded. */
     fun getCategoriesByType(type: TransactionType): Flow<List<Category>>
 
     suspend fun addSubCategory(subCategory: SubCategory): Long
     suspend fun updateSubCategory(subCategory: SubCategory)
-    suspend fun deleteSubCategory(subCategory: SubCategory)
+    suspend fun setSubCategoryArchived(subCategoryId: Long, archived: Boolean)
+
+    /** Every sub-category of a parent, archived included — for the management screen. */
     fun getSubCategories(categoryId: Long): Flow<List<SubCategory>>
+
+    /** Pickable sub-categories of a parent, archived ones excluded. */
+    fun getActiveSubCategories(categoryId: Long): Flow<List<SubCategory>>
+
     fun getAllSubCategories(): Flow<List<SubCategory>>
 }
 
@@ -58,13 +77,14 @@ class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteCategory(category: Category) {
-        SecureLogger.d(TAG, "Starting deleteCategory operation for ID: ${category.id}, name: ${category.name}")
+    override suspend fun setCategoryArchived(categoryId: Long, archived: Boolean) {
+        val action = if (archived) "archive" else "restore"
+        SecureLogger.d(TAG, "Starting $action operation for category ID: $categoryId")
         try {
-            dao.deleteCategory(CategoryEntity.fromDomain(category))
-            SecureLogger.d(TAG, "Category deleted successfully, ID: ${category.id}, name: ${category.name}")
+            dao.setCategoryArchived(categoryId, archived)
+            SecureLogger.i(TAG, "Category ${action}d successfully, ID: $categoryId")
         } catch (e: Exception) {
-            SecureLogger.e(TAG, "Failed to delete category with ID: ${category.id}", e)
+            SecureLogger.e(TAG, "Failed to $action category with ID: $categoryId", e)
             throw e
         }
     }
@@ -124,13 +144,14 @@ class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteSubCategory(subCategory: SubCategory) {
-        SecureLogger.d(TAG, "Starting deleteSubCategory operation for ID: ${subCategory.id}, name: ${subCategory.name}")
+    override suspend fun setSubCategoryArchived(subCategoryId: Long, archived: Boolean) {
+        val action = if (archived) "archive" else "restore"
+        SecureLogger.d(TAG, "Starting $action operation for sub-category ID: $subCategoryId")
         try {
-            dao.deleteSubCategory(SubCategoryEntity.fromDomain(subCategory))
-            SecureLogger.d(TAG, "SubCategory deleted successfully, ID: ${subCategory.id}, name: ${subCategory.name}")
+            dao.setSubCategoryArchived(subCategoryId, archived)
+            SecureLogger.i(TAG, "SubCategory ${action}d successfully, ID: $subCategoryId")
         } catch (e: Exception) {
-            SecureLogger.e(TAG, "Failed to delete subcategory with ID: ${subCategory.id}", e)
+            SecureLogger.e(TAG, "Failed to $action subcategory with ID: $subCategoryId", e)
             throw e
         }
     }
@@ -139,6 +160,14 @@ class CategoryRepositoryImpl @Inject constructor(
         SecureLogger.d(TAG, "Starting getSubCategories query for categoryId: $categoryId")
         return dao.getSubCategories(categoryId).map { list ->
             SecureLogger.d(TAG, "Retrieved ${list.size} subcategories for categoryId: $categoryId")
+            list.map { it.toDomain() }
+        }
+    }
+
+    override fun getActiveSubCategories(categoryId: Long): Flow<List<SubCategory>> {
+        SecureLogger.d(TAG, "Starting getActiveSubCategories query for categoryId: $categoryId")
+        return dao.getActiveSubCategories(categoryId).map { list ->
+            SecureLogger.d(TAG, "Retrieved ${list.size} active subcategories for categoryId: $categoryId")
             list.map { it.toDomain() }
         }
     }

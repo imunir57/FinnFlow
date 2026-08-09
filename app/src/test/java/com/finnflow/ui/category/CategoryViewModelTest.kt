@@ -6,6 +6,7 @@ import com.finnflow.data.model.Category
 import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.repository.CategoryRepository
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -189,42 +190,54 @@ class CategoryViewModelTest {
         }
     }
 
-    // ── Reorder ────────────────────────────────────────────────────────────────
+    // ── Archived split ─────────────────────────────────────────────────────────
 
     @Test
-    fun `moveItem swaps two items in memory`() = runTest {
-        every { repo.getAllCategories() } returns flowOf(
-            listOf(
-                expenseCat,
-                Category(id = 3, name = "Transport", type = TransactionType.EXPENSE, iconName = "car", colorHex = "#3A6EA5")
-            )
-        )
+    fun `archived categories are listed separately from active ones`() = runTest {
+        val archived = Category(id = 3, name = "Old Gym", type = TransactionType.EXPENSE, isArchived = true)
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, archived, incomeCat))
+
         val vm = makeVm()
         vm.state.test {
             var state = awaitItem()
             if (state.isLoading) state = awaitItem()
 
-            val firstName = state.displayItems[0].category.name
-            vm.moveItem(0, 1)
-            state = awaitItem()
-
-            assertNotEquals(firstName, state.displayItems[0].category.name)
+            assertEquals(listOf("Food"), state.displayItems.map { it.category.name })
+            assertEquals(listOf("Old Gym"), state.archivedItems.map { it.category.name })
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun `moveItem with out-of-bounds index is a no-op`() = runTest {
+    fun `type toggle counts only pickable categories`() = runTest {
+        val archived = Category(id = 3, name = "Old Gym", type = TransactionType.EXPENSE, isArchived = true)
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, archived, incomeCat))
+
         val vm = makeVm()
         vm.state.test {
             var state = awaitItem()
             if (state.isLoading) state = awaitItem()
-            val before = state.displayItems.size
 
-            vm.moveItem(0, 99)
-            // No new emission expected; ensure no crash
+            assertEquals(1, state.expenseCount)
+            assertEquals(1, state.incomeCount)
             cancelAndIgnoreRemainingEvents()
-            assertEquals(before, state.displayItems.size)
+        }
+    }
+
+    @Test
+    fun `archived sub-categories are listed separately from active ones`() = runTest {
+        every { repo.getSubCategories(1L) } returns flowOf(
+            listOf(foodSub1, foodSub2.copy(isArchived = true))
+        )
+
+        val vm = makeVm(categoryId = 1L)
+        vm.state.test {
+            var state = awaitItem()
+            if (state.isLoading) state = awaitItem()
+
+            assertEquals(listOf("Restaurant"), state.subCategories.map { it.name })
+            assertEquals(listOf("Groceries"), state.archivedSubCategories.map { it.name })
+            cancelAndIgnoreRemainingEvents()
         }
     }
 
@@ -238,10 +251,54 @@ class CategoryViewModelTest {
     }
 
     @Test
-    fun `deleteCategory calls repository`() = runTest {
+    fun `archiveCategory archives rather than deletes`() = runTest {
         val vm = makeVm()
-        vm.deleteCategory(expenseCat)
-        coVerify { repo.deleteCategory(expenseCat) }
+        vm.archiveCategory(expenseCat)
+        coVerify { repo.setCategoryArchived(expenseCat.id, true) }
+    }
+
+    @Test
+    fun `archiveCategory reports the result`() = runTest {
+        val vm = makeVm()
+        vm.messages.test {
+            vm.archiveCategory(expenseCat)
+            assertEquals("\"Food\" archived", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `archiveCategory reports a failure`() = runTest {
+        coEvery { repo.setCategoryArchived(any(), any()) } throws IllegalStateException("db locked")
+        val vm = makeVm()
+        vm.messages.test {
+            vm.archiveCategory(expenseCat)
+            assertEquals("Couldn't archive \"Food\"", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `restoreCategory clears the archive flag`() = runTest {
+        val vm = makeVm()
+        vm.restoreCategory(expenseCat.copy(isArchived = true))
+        coVerify { repo.setCategoryArchived(expenseCat.id, false) }
+    }
+
+    @Test
+    fun `archiveSubCategory archives rather than deletes`() = runTest {
+        every { repo.getSubCategories(1L) } returns flowOf(listOf(foodSub1))
+        val vm = makeVm(categoryId = 1L)
+        vm.archiveSubCategory(foodSub1)
+        coVerify { repo.setSubCategoryArchived(foodSub1.id, true) }
+    }
+
+    @Test
+    fun `restoreSubCategory clears the archive flag`() = runTest {
+        every { repo.getSubCategories(1L) } returns flowOf(listOf(foodSub1))
+        val vm = makeVm(categoryId = 1L)
+        vm.restoreSubCategory(foodSub1.copy(isArchived = true))
+        coVerify { repo.setSubCategoryArchived(foodSub1.id, false) }
     }
 
     @Test

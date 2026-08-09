@@ -12,9 +12,11 @@ import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -158,6 +160,49 @@ class BackupRepositoryTest {
 
         assertTrue(result.isFailure)
         assertEquals("db error", result.exceptionOrNull()?.message)
+    }
+
+    // ── archive flag ─────────────────────────────────────────────────────
+
+    @Test
+    fun backup_roundTripsTheArchiveFlag() = runTest {
+        val archivedCat = category.copy(id = 2L, name = "Old Gym", isArchived = true)
+        val archivedSub = subCategory.copy(id = 2L, name = "Spin class", isArchived = true)
+        every { categoryDao.getAllCategories() } returns flowOf(listOf(category, archivedCat))
+        every { categoryDao.getAllSubCategories() } returns flowOf(listOf(subCategory, archivedSub))
+        every { transactionDao.getAll() } returns flowOf(emptyList())
+
+        val out = ByteArrayOutputStream()
+        repo.exportBackup(out)
+        val result = repo.restoreBackup(ByteArrayInputStream(out.toByteArray()))
+
+        assertTrue(result.isSuccess)
+        val restoredCats = slot<List<CategoryEntity>>()
+        val restoredSubs = slot<List<SubCategoryEntity>>()
+        coVerify { categoryDao.insertAllCategories(capture(restoredCats)) }
+        coVerify { categoryDao.insertAllSubCategories(capture(restoredSubs)) }
+        assertEquals(listOf(false, true), restoredCats.captured.map { it.isArchived })
+        assertEquals(listOf(false, true), restoredSubs.captured.map { it.isArchived })
+    }
+
+    @Test
+    fun restore_treatsPreArchiveBackupsAsActive() = runTest {
+        // Files written before the flag existed have no isArchived key at all.
+        val payloadJson = """
+            {
+              "version": 1,
+              "categories": [{"id":1,"name":"Food","type":"EXPENSE","iconName":"","colorHex":"#607D8B"}],
+              "subCategories": [{"id":1,"categoryId":1,"name":"Groceries"}],
+              "transactions": []
+            }
+        """.trimIndent()
+
+        val result = repo.restoreBackup(ByteArrayInputStream(payloadJson.toByteArray()))
+
+        assertTrue(result.isSuccess)
+        val restoredCats = slot<List<CategoryEntity>>()
+        coVerify { categoryDao.insertAllCategories(capture(restoredCats)) }
+        assertFalse(restoredCats.captured.single().isArchived)
     }
 
     // ── eraseAllData ─────────────────────────────────────────────────────

@@ -23,13 +23,17 @@ data class Category(
     val name: String,
     val type: TransactionType,
     val iconName: String = "",
-    val colorHex: String = "#607D8B"
+    val colorHex: String = "#607D8B",
+    /** Retired from the pickers, but kept so past transactions keep their label. */
+    val isArchived: Boolean = false
 )
 
 data class SubCategory(
     val id: Long = 0,
     val categoryId: Long,
-    val name: String
+    val name: String,
+    /** Retired from the pickers, but kept so past transactions keep their label. */
+    val isArchived: Boolean = false
 )
 
 data class CategoryWithSubCategories(

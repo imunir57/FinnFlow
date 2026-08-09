@@ -82,10 +82,10 @@ fun CategoryScreen(
 
     // Holds the category awaiting confirmation rather than a bare flag, so the dialog
     // survives recomposition and always names the row the user actually tapped.
-    var pendingDelete by remember { mutableStateOf<Category?>(null) }
+    var pendingArchive by remember { mutableStateOf<Category?>(null) }
 
-    // A delete refused by the ON DELETE RESTRICT foreign key has no other visible effect —
-    // the dialog closes and the row stays. Without this the user is left guessing.
+    // Archiving moves a row from one section of the same screen to another, which is easy to
+    // miss — the snackbar confirms what happened, and reports it when it fails.
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
         viewModel.messages.collectLatest { snackbarHostState.showSnackbar(it) }
@@ -149,7 +149,7 @@ fun CategoryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    "${state.displayItems.size} categories · drag to reorder",
+                    "${state.displayItems.size} categories",
                     fontSize = 10.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
@@ -182,6 +182,31 @@ fun CategoryScreen(
                         }
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+
+                if (state.archivedItems.isNotEmpty()) {
+                    item(key = "archived-header") {
+                        Text(
+                            "ARCHIVED · ${state.archivedItems.size}",
+                            fontSize = 10.5.sp,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 6.dp)
+                        )
+                    }
+                    itemsIndexed(
+                        state.archivedItems,
+                        key = { _, item -> "archived-${item.category.id}" }
+                    ) { _, item ->
+                        ArchivedCategoryRow(
+                            item = item,
+                            onRestore = {
+                                SecureLogger.d(TAG, "User restoring category: id=${item.category.id}")
+                                viewModel.restoreCategory(item.category)
+                            }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
                 }
 
                 item {
@@ -232,19 +257,18 @@ fun CategoryScreen(
                 }
                 viewModel.closeEditSheet()
             },
-            onDelete = { cat ->
-                SecureLogger.d(TAG, "User requested delete of category: id=${cat.id}, name=${cat.name}")
+            onArchive = { cat ->
+                SecureLogger.d(TAG, "User requested archive of category: id=${cat.id}, name=${cat.name}")
                 viewModel.closeEditSheet()
-                pendingDelete = cat
+                pendingArchive = cat
             }
         )
     }
 
-    // ── Delete confirmation ───────────────────────────────────────────────
-    // Copy reflects what the schema actually does: sub_categories cascade-delete with
-    // their parent, while transactions.categoryId is ON DELETE RESTRICT — a category
-    // that is still referenced by a transaction cannot be removed at all.
-    pendingDelete?.let { cat ->
+    // ── Archive confirmation ──────────────────────────────────────────────
+    // Says archived rather than deleted, because that is what happens: the row is kept so the
+    // transactions already filed under it keep their name, icon and colour.
+    pendingArchive?.let { cat ->
         val subCount = state.displayItems.firstOrNull { it.category.id == cat.id }?.subCount ?: 0
         val subClause = when (subCount) {
             0 -> ""
@@ -252,19 +276,20 @@ fun CategoryScreen(
             else -> " and its $subCount sub-categories"
         }
         ConfirmationDialog(
-            title = "Delete \"${cat.name}\"?",
-            message = "\"${cat.name}\"$subClause will be permanently deleted. This can't be " +
-                    "undone. Your transactions are never deleted — but a category still used " +
-                    "by one can't be removed.",
-            confirmLabel = "Delete",
+            title = "Archive \"${cat.name}\"?",
+            message = "\"${cat.name}\"$subClause will stop appearing when you add a " +
+                    "transaction. It isn't deleted — older records keep it, and Stats still " +
+                    "counts it for any period where it has amounts.\n\nYou can restore it from " +
+                    "the Archived list at any time.",
+            confirmLabel = "Archive",
             onConfirm = {
-                SecureLogger.d(TAG, "User confirmed delete of category: id=${cat.id}")
-                viewModel.deleteCategory(cat)
-                pendingDelete = null
+                SecureLogger.d(TAG, "User confirmed archive of category: id=${cat.id}")
+                viewModel.archiveCategory(cat)
+                pendingArchive = null
             },
             onDismiss = {
-                SecureLogger.d(TAG, "User cancelled delete of category: id=${cat.id}")
-                pendingDelete = null
+                SecureLogger.d(TAG, "User cancelled archive of category: id=${cat.id}")
+                pendingArchive = null
             }
         )
     }
@@ -337,21 +362,6 @@ private fun CategoryRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Drag handle ≡
-        Column(
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-            modifier = Modifier.width(14.dp)
-        ) {
-            repeat(3) {
-                Box(
-                    modifier = Modifier
-                        .width(11.dp)
-                        .height(1.5.dp)
-                        .background(MaterialTheme.colorScheme.onSurfaceVariant)
-                )
-            }
-        }
-
         // Icon swatch
         Box(
             modifier = Modifier
@@ -414,6 +424,76 @@ private fun CategoryRow(
     }
 }
 
+// ── Archived category row ─────────────────────────────────────────────────────
+
+/**
+ * Dimmed, non-editable, and offering only Restore — an archived category exists to keep old
+ * transactions readable, so editing it would rewrite how history reads.
+ */
+@Composable
+private fun ArchivedCategoryRow(
+    item: CategoryDisplayItem,
+    onRestore: () -> Unit
+) {
+    val cat  = item.category
+    val icon = remember(cat.iconName) { categoryIconFor(cat.iconName) }
+    val dim  = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = dim, modifier = Modifier.size(18.dp))
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                cat.name,
+                fontSize   = 14.5.sp,
+                fontWeight = FontWeight.Medium,
+                color      = dim,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis
+            )
+            Text(
+                "Hidden from new transactions · still counted in Stats",
+                fontSize = 11.sp,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
+                .clickable(onClick = onRestore)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                "Restore",
+                fontSize   = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                color      = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
 // ── Info box ──────────────────────────────────────────────────────────────────
 
 @Composable
@@ -455,7 +535,7 @@ fun CategoryEditSheet(
     defaultType: TransactionType,
     onClose: () -> Unit,
     onSave: (name: String, type: TransactionType, iconName: String, colorHex: String) -> Unit,
-    onDelete: (Category) -> Unit
+    onArchive: (Category) -> Unit
 ) {
     var name     by remember { mutableStateOf(category?.name ?: "") }
     var iconKey  by remember { mutableStateOf(category?.iconName?.takeIf { it.isNotEmpty() } ?: "dots") }
@@ -660,19 +740,19 @@ fun CategoryEditSheet(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // Delete — edit only
+            // Archive — edit only
             if (category != null) {
                 Spacer(Modifier.height(14.dp))
                 OutlinedButton(
-                    onClick  = { onDelete(category) },
+                    onClick  = { onArchive(category) },
                     modifier = Modifier.fillMaxWidth(),
                     shape    = RoundedCornerShape(12.dp),
                     border   = androidx.compose.foundation.BorderStroke(1.dp, FinnFlowTheme.colors.expense),
                     colors   = ButtonDefaults.outlinedButtonColors(contentColor = FinnFlowTheme.colors.expense)
                 ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Archive, contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Delete category", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Archive category", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -740,7 +820,7 @@ fun SubCategoryScreen(
 
     // Pending sub-category, hoisted out of the list item so the confirmation is not tied
     // to a row that may be recomposed or recycled underneath it.
-    var pendingDelete by remember { mutableStateOf<SubCategory?>(null) }
+    var pendingArchive by remember { mutableStateOf<SubCategory?>(null) }
 
     Scaffold(
         topBar = {
@@ -770,12 +850,47 @@ fun SubCategoryScreen(
                         SecureLogger.d(TAG, "User saved sub-category: id=${it.id}, name=${it.name}")
                         viewModel.updateSubCategory(it)
                     },
-                    onDelete    = {
-                        SecureLogger.d(TAG, "User requested delete of sub-category: id=${it.id}, name=${it.name}")
-                        pendingDelete = it
+                    onArchive   = {
+                        SecureLogger.d(TAG, "User requested archive of sub-category: id=${it.id}, name=${it.name}")
+                        pendingArchive = it
                     }
                 )
                 HorizontalDivider()
+            }
+
+            if (state.archivedSubCategories.isNotEmpty()) {
+                item(key = "archived-subs-header") {
+                    Text(
+                        "ARCHIVED · ${state.archivedSubCategories.size}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 4.dp)
+                    )
+                }
+                itemsIndexed(
+                    state.archivedSubCategories,
+                    key = { _, sub -> "archived-${sub.id}" }
+                ) { _, sub ->
+                    ListItem(
+                        headlineContent = {
+                            Text(sub.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                        supportingContent = {
+                            Text(
+                                "Hidden from new transactions · kept on older ones",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = {
+                                SecureLogger.d(TAG, "User restoring sub-category: id=${sub.id}")
+                                viewModel.restoreSubCategory(sub)
+                            }) { Text("Restore") }
+                        }
+                    )
+                    HorizontalDivider()
+                }
             }
         }
     }
@@ -809,22 +924,23 @@ fun SubCategoryScreen(
         )
     }
 
-    // transactions.subCategoryId is ON DELETE SET NULL, so the transactions themselves
-    // survive — they simply lose this label and keep their parent category.
-    pendingDelete?.let { sub ->
+    // Archived rather than deleted: transactions.subCategoryId is ON DELETE SET NULL, so
+    // removing the row would quietly turn every past entry into "Uncategorised".
+    pendingArchive?.let { sub ->
         ConfirmationDialog(
-            title = "Delete \"${sub.name}\"?",
-            message = "This sub-category will be permanently deleted. Transactions filed " +
-                    "under it are kept — they stay in their category but lose this label.",
-            confirmLabel = "Delete",
+            title = "Archive \"${sub.name}\"?",
+            message = "\"${sub.name}\" will stop appearing when you add a transaction. It " +
+                    "isn't deleted — transactions already filed under it keep the label.\n\n" +
+                    "You can restore it from the Archived list at any time.",
+            confirmLabel = "Archive",
             onConfirm = {
-                SecureLogger.d(TAG, "User confirmed delete of sub-category: id=${sub.id}")
-                viewModel.deleteSubCategory(sub)
-                pendingDelete = null
+                SecureLogger.d(TAG, "User confirmed archive of sub-category: id=${sub.id}")
+                viewModel.archiveSubCategory(sub)
+                pendingArchive = null
             },
             onDismiss = {
-                SecureLogger.d(TAG, "User cancelled delete of sub-category: id=${sub.id}")
-                pendingDelete = null
+                SecureLogger.d(TAG, "User cancelled archive of sub-category: id=${sub.id}")
+                pendingArchive = null
             }
         )
     }
@@ -834,7 +950,7 @@ fun SubCategoryScreen(
 fun SubCategoryItem(
     subCategory: SubCategory,
     onEdit: (SubCategory) -> Unit,
-    onDelete: (SubCategory) -> Unit
+    onArchive: (SubCategory) -> Unit
 ) {
     var showEdit by remember { mutableStateOf(false) }
 
@@ -847,9 +963,9 @@ fun SubCategoryItem(
                     showEdit = true
                 }) { Icon(Icons.Default.Edit, "Edit") }
                 IconButton(onClick = {
-                    SecureLogger.d(TAG, "User clicked Delete sub-category: id=${subCategory.id}")
-                    onDelete(subCategory)
-                }) { Icon(Icons.Default.Delete, "Delete") }
+                    SecureLogger.d(TAG, "User clicked Archive sub-category: id=${subCategory.id}")
+                    onArchive(subCategory)
+                }) { Icon(Icons.Default.Archive, "Archive") }
             }
         }
     )

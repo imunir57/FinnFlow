@@ -118,7 +118,7 @@ class TransactionViewModel @Inject constructor(
         subCategoriesJob?.cancel()
         subCategoriesJob = viewModelScope.launch {
             try {
-                categoryRepo.getSubCategories(categoryId).collect { subs ->
+                categoryRepo.getActiveSubCategories(categoryId).collect { subs ->
                     SecureLogger.d(TAG, "Sub-categories loaded: count=${subs.size}")
                     _state.update { it.copy(subCategories = subs, isLoadingSubCategories = false) }
                 }

@@ -17,7 +17,7 @@ import com.finnflow.data.logger.SecureLogger
         CategoryEntity::class,
         SubCategoryEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -39,10 +39,24 @@ abstract class AppDatabase : RoomDatabase() {
          * testing rather than silently wiping user data in production. Cover each new
          * migration with a MigrationTestHelper test under src/androidTest.
          */
-        val MIGRATIONS: Array<Migration> = emptyArray()
+        /**
+         * Adds the archive flag to both category tables.
+         *
+         * Everything that exists at upgrade time is by definition still in use, so the default
+         * of 0 (not archived) is the correct backfill — no data pass is needed.
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                SecureLogger.d(TAG, "Migrating schema 2 -> 3: adding isArchived columns")
+                db.execSQL("ALTER TABLE categories ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE sub_categories ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_2_3)
 
         init {
-            SecureLogger.d(TAG, "AppDatabase initialized with schema version 2, database name: $DATABASE_NAME")
+            SecureLogger.d(TAG, "AppDatabase initialized with schema version 3, database name: $DATABASE_NAME")
         }
     }
 }

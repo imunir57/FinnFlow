@@ -69,7 +69,9 @@ class CompareViewModel @Inject constructor(
      */
     val subCategoriesByCategory: StateFlow<Map<Long, List<SubCategory>>> =
         categories.getAllSubCategories()
-            .map { subs -> subs.groupBy { it.categoryId } }
+            // This is a picker, so archived sub-categories are filtered out the same way
+            // getCategoriesByType drops archived categories.
+            .map { subs -> subs.filterNot { it.isArchived }.groupBy { it.categoryId } }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     val state: StateFlow<CompareUiState> =
