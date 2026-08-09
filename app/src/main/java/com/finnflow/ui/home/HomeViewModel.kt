@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
+import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfileRepository
@@ -26,6 +27,7 @@ data class HomeUiState(
     val totalExpense: Double = 0.0,
     val dailyGroups: Map<LocalDate, List<Transaction>> = emptyMap(),
     val categories: Map<Long, Category> = emptyMap(),
+    val subCategories: Map<Long, SubCategory> = emptyMap(),
     val isLoading: Boolean = true,
     val displayName: String = "",
     val initials: String = "?"
@@ -58,8 +60,9 @@ class HomeViewModel @Inject constructor(
             }
         },
         categoryRepo.getAllCategories(),
+        categoryRepo.getAllSubCategories(),
         profileRepo.profile
-    ) { txData, cats, profile ->
+    ) { txData, cats, subCats, profile ->
         val income = txData.txs.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
         val expense = txData.txs.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
         SecureLogger.d(TAG, "HomeUiState computed: month=${txData.month}, tx_count=${txData.txs.size}, income_sum=$income, expense_sum=$expense, daily_groups=${txData.groups.size}")
@@ -70,6 +73,7 @@ class HomeViewModel @Inject constructor(
             totalExpense  = expense,
             dailyGroups   = txData.groups,
             categories    = cats.associateBy { it.id },
+            subCategories = subCats.associateBy { it.id },
             isLoading     = false,
             displayName   = profile.displayName,
             initials      = profile.initials.ifBlank { "?" }

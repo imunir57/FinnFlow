@@ -22,9 +22,12 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
@@ -68,6 +71,72 @@ class ProfileViewModelTest {
         assertEquals(0.0, vm.uiState.value.totalExpense, 0.001)
         assertEquals(0, vm.uiState.value.entryCount)
     }
+
+    // ── memberSince ───────────────────────────────────────────────────────
+
+    @Test
+    fun memberSince_isNull_whenNothingToDateTheAccountFrom() = runTest {
+        val vm = makeVm()
+        vm.uiState.test {
+            assertNull(awaitItem().memberSince)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun memberSince_usesCreatedAt_whenNoTransactionsExist() = runTest {
+        val created = LocalDate.of(2025, 3, 14)
+        every { profileRepo.profile } returns flowOf(UserProfile(createdAtMillis = created.toMillis()))
+        val vm = makeVm()
+
+        vm.uiState.test {
+            assertEquals(YearMonth.of(2025, 3), awaitItem().memberSince)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun memberSince_prefersOlderTransaction_overBackfilledCreatedAt() = runTest {
+        // The stamp is backfilled at app start, so on an install that predates the key it reads as
+        // "today" while the records go back years.
+        every { profileRepo.profile } returns
+            flowOf(UserProfile(createdAtMillis = LocalDate.of(2026, 8, 9).toMillis()))
+        every { txRepo.getAllTransactions() } returns flowOf(
+            listOf(
+                Transaction(id = 1, amount = 10.0, type = TransactionType.EXPENSE,
+                    categoryId = 1, date = LocalDate.of(2023, 11, 2), note = ""),
+                Transaction(id = 2, amount = 20.0, type = TransactionType.EXPENSE,
+                    categoryId = 1, date = LocalDate.of(2024, 1, 5), note = "")
+            )
+        )
+        val vm = makeVm()
+
+        vm.uiState.test {
+            assertEquals(YearMonth.of(2023, 11), awaitItem().memberSince)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun memberSince_usesCreatedAt_whenItPredatesEveryTransaction() = runTest {
+        every { profileRepo.profile } returns
+            flowOf(UserProfile(createdAtMillis = LocalDate.of(2024, 2, 1).toMillis()))
+        every { txRepo.getAllTransactions() } returns flowOf(
+            listOf(
+                Transaction(id = 1, amount = 10.0, type = TransactionType.EXPENSE,
+                    categoryId = 1, date = LocalDate.of(2024, 6, 9), note = "")
+            )
+        )
+        val vm = makeVm()
+
+        vm.uiState.test {
+            assertEquals(YearMonth.of(2024, 2), awaitItem().memberSince)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    private fun LocalDate.toMillis(): Long =
+        atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
     @Test
     fun uiState_reflectsProfileFromRepository() = runTest {

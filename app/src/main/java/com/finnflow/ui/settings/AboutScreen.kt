@@ -1,13 +1,12 @@
 package com.finnflow.ui.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
@@ -16,7 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -24,7 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.finnflow.BuildConfig
-import com.finnflow.ui.theme.FinnFlowTheme
+import com.finnflow.R
 
 @Composable
 fun AboutScreen(
@@ -59,20 +58,15 @@ fun AboutScreen(
                 .padding(top = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
+            // The app's own launcher icon, not a stand-in glyph. It ships its own background and
+            // corner radius, so it is clipped to match rather than dropped onto a tinted circle.
+            Image(
+                painter = painterResource(R.mipmap.ic_launcher),
+                contentDescription = null,
                 modifier = Modifier
                     .size(76.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Savings,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondary,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+                    .clip(RoundedCornerShape(20.dp))
+            )
 
             Spacer(Modifier.height(18.dp))
 

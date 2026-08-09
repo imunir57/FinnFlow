@@ -31,6 +31,7 @@ class UserProfileRepositoryImpl @Inject constructor(
         val AVATAR_URL = stringPreferencesKey("profile_avatar_url")
         val GOOGLE_ACCOUNT_ID = stringPreferencesKey("profile_google_account_id")
         val IS_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
+        val CREATED_AT = longPreferencesKey("profile_created_at")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -47,7 +48,8 @@ class UserProfileRepositoryImpl @Inject constructor(
             email = prefs[Keys.EMAIL] ?: "",
             avatarUrl = prefs[Keys.AVATAR_URL],
             googleAccountId = prefs[Keys.GOOGLE_ACCOUNT_ID],
-            isSignedIn = prefs[Keys.IS_SIGNED_IN] ?: false
+            isSignedIn = prefs[Keys.IS_SIGNED_IN] ?: false,
+            createdAtMillis = prefs[Keys.CREATED_AT]
         )
     }
 
@@ -100,6 +102,15 @@ class UserProfileRepositoryImpl @Inject constructor(
             prefs[Keys.APP_LOCK_ENABLED] = enabled
             val action = if (enabled) "enabled" else "disabled"
             SecureLogger.i(TAG, "App lock $action")
+        }
+    }
+
+    override suspend fun ensureCreatedAt(millis: Long) {
+        dataStore.edit { prefs ->
+            if (prefs[Keys.CREATED_AT] == null) {
+                prefs[Keys.CREATED_AT] = millis
+                SecureLogger.i(TAG, "Profile creation timestamp recorded")
+            }
         }
     }
 

@@ -258,10 +258,11 @@ fun HomeScreen(
                         items(txList, key = { it.id }) { tx ->
                             val cat = state.categories[tx.categoryId]
                             TxRow(
-                                transaction = tx,
-                                category    = cat,
-                                onEdit      = { onEditTransaction(tx.id) },
-                                onDelete    = { pendingDelete = tx }
+                                transaction     = tx,
+                                category        = cat,
+                                subCategoryName = state.subCategoryNameOf(tx),
+                                onEdit          = { onEditTransaction(tx.id) },
+                                onDelete        = { pendingDelete = tx }
                             )
                         }
                     }
@@ -274,7 +275,9 @@ fun HomeScreen(
 
     pendingDelete?.let { tx ->
         val label = state.categories[tx.categoryId]?.name ?: tx.type.name
-        val described = if (tx.note.isNotBlank()) "$label · ${tx.note}" else label
+        // Names the transaction the same way its row does, so the dialog is recognisably about it.
+        val described = (listOf(label) + txDetailParts(state.subCategoryNameOf(tx), tx.note))
+            .joinToString(" · ")
         val day = "${tx.date.dayOfMonth} " +
                 tx.date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()) +
                 " ${tx.date.year}"
@@ -371,10 +374,22 @@ private fun DaySectionHeader(date: LocalDate, dayTotal: Double) {
     }
 }
 
+/** A transaction's subcategory, or null when it has none or the subcategory was deleted. */
+private fun HomeUiState.subCategoryNameOf(transaction: Transaction): String? =
+    transaction.subCategoryId?.let { subCategories[it]?.name }
+
+/** The secondary-line parts of a row, in order, skipping whatever is missing. */
+private fun txDetailParts(subCategoryName: String?, note: String): List<String> =
+    listOfNotNull(
+        subCategoryName?.takeIf { it.isNotBlank() },
+        note.takeIf { it.isNotBlank() }
+    )
+
 @Composable
 private fun TxRow(
     transaction: Transaction,
     category: Category?,
+    subCategoryName: String?,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -413,9 +428,12 @@ private fun TxRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (transaction.note.isNotBlank()) {
+            // Subcategory and note share the line the note used to have to itself — two "Food"
+            // rows are otherwise indistinguishable.
+            val detail = txDetailParts(subCategoryName, transaction.note)
+            if (detail.isNotEmpty()) {
                 Text(
-                    transaction.note,
+                    detail.joinToString(" · "),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
