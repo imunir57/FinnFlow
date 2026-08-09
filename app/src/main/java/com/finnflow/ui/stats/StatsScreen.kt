@@ -52,30 +52,11 @@ fun StatsScreen(
     viewModel: StatsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    var showPicker     by remember { mutableStateOf(false) }
     var showFromPicker by remember { mutableStateOf(false) }
     var showToPicker   by remember { mutableStateOf(false) }
 
-    // Single date picker — used for MONTHLY (jump to month) and ANNUALLY (jump to year)
-    if (showPicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.from.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        viewModel.onPickedDate(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
-                    }
-                    showPicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showPicker = false }) { Text("Cancel") } }
-        ) { DatePicker(state = pickerState) }
-    }
-
-    // Two-step pickers for CUSTOM range
+    // One picker per end of a CUSTOM range. They are independent — picking a new start must not
+    // drag the user through the end picker as well, since either end is edited on its own.
     if (showFromPicker) {
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = state.from.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
@@ -89,8 +70,7 @@ fun StatsScreen(
                         viewModel.onCustomRangeChange(d, state.to)
                     }
                     showFromPicker = false
-                    showToPicker   = true
-                }) { Text("Next") }
+                }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { showFromPicker = false }) { Text("Cancel") } }
         ) { DatePicker(state = pickerState) }
@@ -139,19 +119,15 @@ fun StatsScreen(
             onNavigateToCompare = onNavigateToCompare
         )
 
-        // ── Range display: < label >  [Pick] ─────────────────────────────
+        // ── Range display: < label >   /   [from] – [to] ──────────────────
         RangeDisplayRow(
-            period = state.period,
-            from   = state.from,
-            to     = state.to,
-            onPrev = viewModel::previousPeriod,
-            onNext = viewModel::nextPeriod,
-            onPick = {
-                when (state.period) {
-                    StatsPeriod.MONTHLY, StatsPeriod.ANNUALLY -> showPicker = true
-                    StatsPeriod.CUSTOM -> showFromPicker = true
-                }
-            }
+            period     = state.period,
+            from       = state.from,
+            to         = state.to,
+            onPrev     = viewModel::previousPeriod,
+            onNext     = viewModel::nextPeriod,
+            onPickFrom = { showFromPicker = true },
+            onPickTo   = { showToPicker   = true }
         )
 
         // ── Income / Expense toggle (centered) ────────────────────────────
@@ -183,7 +159,9 @@ fun StatsScreen(
             item {
                 LegendRow(summaries = state.activeSummary, percentOf = state::percentOf)
             }
-            if (state.selectedType == TransactionType.EXPENSE) {
+            // Insights is scoped to a single calendar month and takes no range argument, so
+            // offering it under Year or Custom would open numbers unrelated to what is on screen.
+            if (state.period == StatsPeriod.MONTHLY && state.selectedType == TransactionType.EXPENSE) {
                 item { InsightsEntryCard(onClick = onNavigateToInsights) }
             }
             item {
@@ -308,6 +286,8 @@ private fun RangeTabsRow(
 
 // ── Range display row ─────────────────────────────────────────────────────────
 
+private val rangeEndFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+
 @Composable
 private fun RangeDisplayRow(
     period: StatsPeriod,
@@ -315,38 +295,35 @@ private fun RangeDisplayRow(
     to: LocalDate,
     onPrev: () -> Unit,
     onNext: () -> Unit,
-    onPick: () -> Unit
+    onPickFrom: () -> Unit,
+    onPickTo: () -> Unit
 ) {
-    val label = when (period) {
-        StatsPeriod.MONTHLY  -> YearMonth.from(from).format(DateTimeFormatter.ofPattern("MMMM yyyy"))
-        StatsPeriod.ANNUALLY -> from.year.toString()
-        StatsPeriod.CUSTOM   -> {
-            val fmt  = DateTimeFormatter.ofPattern("MMM d")
-            val fmtY = DateTimeFormatter.ofPattern("MMM d, yyyy")
-            if (from.year == to.year) "${from.format(fmt)} – ${to.format(fmtY)}"
-            else "${from.format(fmtY)} – ${to.format(fmtY)}"
-        }
-    }
-    val canNavigate = period != StatsPeriod.CUSTOM
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 10.dp, end = 18.dp, top = 14.dp, bottom = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: chevron nav + label
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(
-                onClick = onPrev,
-                enabled = canNavigate,
-                modifier = Modifier.size(32.dp)
-            ) {
+        if (period == StatsPeriod.CUSTOM) {
+            // Stepping through arbitrary ranges is meaningless, so the chevrons give way to the
+            // two end buttons — they are both the affordance and the range label.
+            Spacer(Modifier.width(8.dp))
+            RangeEndButton(date = from, onClick = onPickFrom, clickLabel = "Change start date")
+            Text(
+                " – ",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            RangeEndButton(date = to, onClick = onPickTo, clickLabel = "Change end date")
+        } else {
+            val label = when (period) {
+                StatsPeriod.ANNUALLY -> from.year.toString()
+                else -> YearMonth.from(from).format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+            }
+            IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.ArrowBack, "Previous",
-                    tint = if (canNavigate) MaterialTheme.colorScheme.onSurfaceVariant
-                           else FinnFlowTheme.colors.disabledText,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -358,35 +335,32 @@ private fun RangeDisplayRow(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Spacer(Modifier.width(4.dp))
-            IconButton(
-                onClick = onNext,
-                enabled = canNavigate,
-                modifier = Modifier.size(32.dp)
-            ) {
+            IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.ArrowForward, "Next",
-                    tint = if (canNavigate) MaterialTheme.colorScheme.onSurfaceVariant
-                           else FinnFlowTheme.colors.disabledText,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
         }
+    }
+}
 
-        // Right: Pick pill
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
-                .clickable(onClick = onPick)
-                .padding(horizontal = 10.dp, vertical = 5.dp)
-        ) {
-            Text(
-                "Pick",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                letterSpacing = 0.3.sp
-            )
-        }
+@Composable
+private fun RangeEndButton(date: LocalDate, onClick: () -> Unit, clickLabel: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
+            .clickable(onClickLabel = clickLabel, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            date.format(rangeEndFormatter),
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
