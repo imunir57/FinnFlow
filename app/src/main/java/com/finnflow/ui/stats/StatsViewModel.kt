@@ -94,9 +94,15 @@ class StatsViewModel @Inject constructor(
         _params.update { it.copy(period = period, from = from, to = to) }
     }
 
+    /**
+     * Either end of a custom range is editable on its own, so the two can cross over. An inverted
+     * range would query nothing and read as "no data" rather than as a mistake — normalise instead.
+     */
     fun onCustomRangeChange(from: LocalDate, to: LocalDate) {
-        SecureLogger.d(TAG, "Custom range changed: $from to $to")
-        _params.update { it.copy(period = StatsPeriod.CUSTOM, from = from, to = to) }
+        val start = minOf(from, to)
+        val end   = maxOf(from, to)
+        SecureLogger.d(TAG, "Custom range changed: $start to $end")
+        _params.update { it.copy(period = StatsPeriod.CUSTOM, from = start, to = end) }
     }
 
     fun onTypeChange(type: TransactionType) {
@@ -135,23 +141,6 @@ class StatsViewModel @Inject constructor(
                 StatsPeriod.ANNUALLY -> {
                     val y = p.from.year + 1
                     SecureLogger.d(TAG, "Next year: $y")
-                    p.copy(from = LocalDate.of(y, 1, 1), to = LocalDate.of(y, 12, 31))
-                }
-                StatsPeriod.CUSTOM -> p
-            }
-        }
-    }
-
-    fun onPickedDate(date: LocalDate) {
-        SecureLogger.d(TAG, "User picked date: $date")
-        _params.update { p ->
-            when (p.period) {
-                StatsPeriod.MONTHLY -> {
-                    val ym = YearMonth.from(date)
-                    p.copy(from = ym.atDay(1), to = ym.atEndOfMonth())
-                }
-                StatsPeriod.ANNUALLY -> {
-                    val y = date.year
                     p.copy(from = LocalDate.of(y, 1, 1), to = LocalDate.of(y, 12, 31))
                 }
                 StatsPeriod.CUSTOM -> p

@@ -79,16 +79,19 @@ class GoogleAuthClientImpl @Inject constructor() : GoogleAuthClient {
 
         // Clears Credential Manager's cached sign-in state so the next signIn() re-prompts
         // the account picker instead of silently auto-selecting the same account. Best-effort:
-        // a provider failure must not stop the caller from clearing the local profile.
+        // a provider failure must not stop the caller from clearing the local profile. Catching
+        // ClearCredentialException alone is not enough for that — a device with no credential
+        // provider, or a broken Play services install, throws from outside that hierarchy, and
+        // letting it escape used to abort sign-out with the account still on the device.
         try {
             CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
             SecureLogger.i(TAG, "Credential Manager cache cleared successfully")
         } catch (e: CancellationException) {
             SecureLogger.i(TAG, "Google sign-out cancelled")
             throw e
-        } catch (e: ClearCredentialException) {
+        } catch (e: Exception) {
             // Ignored — the local sign-out still proceeds.
-            SecureLogger.w(TAG, "ClearCredentialException during sign-out (continuing anyway): ${e.message}")
+            SecureLogger.w(TAG, "${e.javaClass.simpleName} during sign-out (continuing anyway): ${e.message}")
         }
     }
 

@@ -37,8 +37,11 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
+import java.time.format.DateTimeFormatter
 
 private const val TAG = "ProfileScreen"
+
+private val memberSinceFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy")
 
 @Composable
 fun ProfileScreen(
@@ -358,16 +361,19 @@ fun ProfileScreen(
             }
 
             // ── Footer ─────────────────────────────────────────────────────
-            item {
-                Text(
-                    "Member since January 2025",
-                    fontSize = 11.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 20.dp, bottom = 4.dp)
-                )
+            // Omitted rather than guessed at when there is nothing to date the account from.
+            uiState.memberSince?.let { memberSince ->
+                item {
+                    Text(
+                        "Member since ${memberSince.format(memberSinceFormatter)}",
+                        fontSize = 11.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 20.dp, bottom = 4.dp)
+                    )
+                }
             }
 
             item { Spacer(Modifier.height(80.dp)) }

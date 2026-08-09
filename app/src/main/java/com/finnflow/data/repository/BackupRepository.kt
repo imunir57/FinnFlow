@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.finnflow.data.db.AppDatabase
 import com.finnflow.data.db.dao.CategoryDao
 import com.finnflow.data.db.dao.TransactionDao
+import com.finnflow.data.db.seedDefaultCategories
 import com.finnflow.data.db.entity.CategoryEntity
 import com.finnflow.data.db.entity.SubCategoryEntity
 import com.finnflow.data.db.entity.TransactionEntity
@@ -65,6 +66,16 @@ data class BackupPayload(
 interface BackupRepository {
     suspend fun exportBackup(outputStream: OutputStream)
     suspend fun restoreBackup(inputStream: InputStream): Result<Unit>
+
+    /**
+     * Deletes every transaction, sub-category and category, then re-seeds the default categories.
+     *
+     * Irreversible — there is no cloud copy — so callers must confirm with the user first and
+     * offer a backup. Re-seeding is part of the erase rather than a follow-up step: emptying the
+     * tables leaves the database file in place, so Room's `onCreate` seeding never fires again and
+     * a bare wipe would leave the app with no categories to file a transaction against.
+     */
+    suspend fun eraseAllData()
 }
 
 @Singleton
@@ -165,6 +176,23 @@ class BackupRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             SecureLogger.e(TAG, "Backup restore failed during database write", e)
             Result.failure(e)
+        }
+    }
+
+    override suspend fun eraseAllData() {
+        SecureLogger.i(TAG, "Erase all data requested")
+        try {
+            transactionRunner {
+                transactionDao.deleteAll()
+                categoryDao.deleteAllSubCategories()
+                categoryDao.deleteAllCategories()
+                SecureLogger.d(TAG, "All user data deleted, re-seeding default categories")
+                seedDefaultCategories(categoryDao)
+            }
+            SecureLogger.i(TAG, "Erase all data completed successfully")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Erase all data failed", e)
+            throw e
         }
     }
 

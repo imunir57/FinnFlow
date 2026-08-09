@@ -31,6 +31,7 @@ class UserProfileRepositoryImpl @Inject constructor(
         val AVATAR_URL = stringPreferencesKey("profile_avatar_url")
         val GOOGLE_ACCOUNT_ID = stringPreferencesKey("profile_google_account_id")
         val IS_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
+        val CREATED_AT = longPreferencesKey("profile_created_at")
     }
 
     override val profile: Flow<UserProfile> get() = dataStore.data.map { prefs ->
@@ -47,7 +48,8 @@ class UserProfileRepositoryImpl @Inject constructor(
             email = prefs[Keys.EMAIL] ?: "",
             avatarUrl = prefs[Keys.AVATAR_URL],
             googleAccountId = prefs[Keys.GOOGLE_ACCOUNT_ID],
-            isSignedIn = prefs[Keys.IS_SIGNED_IN] ?: false
+            isSignedIn = prefs[Keys.IS_SIGNED_IN] ?: false,
+            createdAtMillis = prefs[Keys.CREATED_AT]
         )
     }
 
@@ -103,6 +105,15 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun ensureCreatedAt(millis: Long) {
+        dataStore.edit { prefs ->
+            if (prefs[Keys.CREATED_AT] == null) {
+                prefs[Keys.CREATED_AT] = millis
+                SecureLogger.i(TAG, "Profile creation timestamp recorded")
+            }
+        }
+    }
+
     override suspend fun setLastBackupTimestamp(timestamp: Long) {
         dataStore.edit { prefs ->
             prefs[Keys.LAST_BACKUP_TIMESTAMP] = timestamp
@@ -132,16 +143,6 @@ class UserProfileRepositoryImpl @Inject constructor(
             prefs[Keys.GOOGLE_ACCOUNT_ID] = googleAccountId
             prefs[Keys.IS_SIGNED_IN] = true
             SecureLogger.i(TAG, "User signed in with Google [nameOverride=${!nameIsCustom && displayName.isNotBlank()}, avatar=${avatarUrl != null}]")
-        }
-    }
-
-    override suspend fun signOutGoogle() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.EMAIL)
-            prefs.remove(Keys.AVATAR_URL)
-            prefs.remove(Keys.GOOGLE_ACCOUNT_ID)
-            prefs[Keys.IS_SIGNED_IN] = false
-            SecureLogger.i(TAG, "User signed out from Google")
         }
     }
 }

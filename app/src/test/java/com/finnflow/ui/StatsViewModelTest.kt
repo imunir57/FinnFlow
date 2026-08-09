@@ -112,6 +112,36 @@ class StatsViewModelTest {
     }
 
     @Test
+    fun onCustomRange_swapsInvertedRange() = runTest {
+        val vm = StatsViewModel(repo)
+        val from = LocalDate.of(2024, 3, 31)
+        val to = LocalDate.of(2024, 1, 1)
+        vm.state.test {
+            awaitItem() // initial state
+            vm.onCustomRangeChange(from, to)
+            val updated = awaitItem()
+            assertEquals(StatsPeriod.CUSTOM, updated.period)
+            assertEquals(to, updated.from)
+            assertEquals(from, updated.to)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun onCustomRange_keepsSingleDayRange() = runTest {
+        val vm = StatsViewModel(repo)
+        val day = LocalDate.of(2024, 2, 14)
+        vm.state.test {
+            awaitItem() // initial state
+            vm.onCustomRangeChange(day, day)
+            val updated = awaitItem()
+            assertEquals(day, updated.from)
+            assertEquals(day, updated.to)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun percentOf_calculatesCorrectly() = runTest {
         val vm = StatsViewModel(repo)
         vm.state.test {

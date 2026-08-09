@@ -10,6 +10,7 @@ import com.finnflow.data.repository.BackupRepository
 import com.finnflow.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -316,17 +317,45 @@ class SettingsViewModelTest {
     // ── onSignOut ─────────────────────────────────────────────────────────
 
     @Test
-    fun onSignOut_clearsCredentialStateSignsOutProfileAndNotifies() = runTest {
+    fun onSignOut_clearsCredentialStateThenErasesDataThenProfile() = runTest {
         val vm = makeVm()
         val context = mockk<android.content.Context>(relaxed = true)
 
+        vm.onSignOut(context)
+
+        coVerifyOrder {
+            googleAuthClient.signOut(context)
+            backupRepo.eraseAllData()
+            repo.clearProfile()
+        }
+    }
+
+    @Test
+    fun onSignOut_whenCredentialClearFails_stillErasesDataAndProfile() = runTest {
+        val context = mockk<android.content.Context>(relaxed = true)
+        // A device with no credential provider throws from outside ClearCredentialException;
+        // the local sign out must not depend on it.
+        coEvery { googleAuthClient.signOut(context) } throws IllegalStateException("no provider")
+        val vm = makeVm()
+
+        vm.onSignOut(context)
+
+        coVerify { backupRepo.eraseAllData() }
+        coVerify { repo.clearProfile() }
+    }
+
+    @Test
+    fun onSignOut_whenEraseFails_leavesProfileIntactAndReportsFailure() = runTest {
+        val context = mockk<android.content.Context>(relaxed = true)
+        coEvery { backupRepo.eraseAllData() } throws IllegalStateException("db locked")
+        val vm = makeVm()
+
         vm.messages.test {
             vm.onSignOut(context)
-            assertEquals("Signed out", awaitItem())
+            assertEquals("Sign out failed: db locked", awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
 
-        coVerify { googleAuthClient.signOut(context) }
-        coVerify { repo.signOutGoogle() }
+        coVerify(exactly = 0) { repo.clearProfile() }
     }
 }

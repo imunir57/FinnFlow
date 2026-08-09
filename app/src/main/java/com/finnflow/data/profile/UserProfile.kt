@@ -14,7 +14,9 @@ data class UserProfile(
     val email: String = "",
     val avatarUrl: String? = null,
     val googleAccountId: String? = null,
-    val isSignedIn: Boolean = false
+    val isSignedIn: Boolean = false,
+    /** When this profile was first created. Absent on installs that predate the key. */
+    val createdAtMillis: Long? = null
 ) {
     val currencySymbol: String
         get() = Currency.fromCode(currencyCode).symbol

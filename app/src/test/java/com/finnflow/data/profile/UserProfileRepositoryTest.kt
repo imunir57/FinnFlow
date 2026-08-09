@@ -45,6 +45,7 @@ class UserProfileRepositoryTest {
     private val KEY_GOOGLE_ID = stringPreferencesKey("profile_google_account_id")
     private val KEY_SIGNED_IN = booleanPreferencesKey("profile_is_signed_in")
     private val KEY_NAME_IS_CUSTOM = booleanPreferencesKey("profile_name_is_custom")
+    private val KEY_CREATED_AT = longPreferencesKey("profile_created_at")
 
     @Before
     fun setup() {
@@ -502,34 +503,39 @@ class UserProfileRepositoryTest {
         assertEquals(false, result[KEY_NAME_IS_CUSTOM])
     }
 
-    // ── signOutGoogle ─────────────────────────────────────────────────────
+    // ── ensureCreatedAt ───────────────────────────────────────────────────
 
     @Test
-    fun signOutGoogle_callsUpdateData() = runTest {
-        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
-
-        repo.signOutGoogle()
-
-        coVerify { dataStore.updateData(any()) }
-    }
-
-    @Test
-    fun signOutGoogle_clearsAccountFieldsButKeepsName() = runTest {
+    fun ensureCreatedAt_stampsWhenAbsent() = runTest {
         val transformSlot = slot<suspend (Preferences) -> Preferences>()
         coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
 
-        repo.signOutGoogle()
+        repo.ensureCreatedAt(1_700_000_000_000L)
 
-        val existing = preferencesOf(
-            KEY_NAME to "Jane",
-            KEY_EMAIL to "jane@gmail.com",
-            KEY_GOOGLE_ID to "sub123",
-            KEY_SIGNED_IN to true
-        )
+        val result = transformSlot.captured(emptyPreferences())
+        assertEquals(1_700_000_000_000L, result[KEY_CREATED_AT])
+    }
+
+    @Test
+    fun ensureCreatedAt_keepsTheOriginalStamp() = runTest {
+        val transformSlot = slot<suspend (Preferences) -> Preferences>()
+        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
+
+        // Runs on every app start, so a later call must never move the date forward.
+        repo.ensureCreatedAt(1_800_000_000_000L)
+
+        val existing = preferencesOf(KEY_CREATED_AT to 1_700_000_000_000L)
         val result = transformSlot.captured(existing)
-        assertEquals("Jane", result[KEY_NAME])
-        assertNull(result[KEY_EMAIL])
-        assertNull(result[KEY_GOOGLE_ID])
-        assertEquals(false, result[KEY_SIGNED_IN])
+        assertEquals(1_700_000_000_000L, result[KEY_CREATED_AT])
+    }
+
+    @Test
+    fun profile_mapsCreatedAt() = runTest {
+        every { dataStore.data } returns flowOf(preferencesOf(KEY_CREATED_AT to 1_700_000_000_000L))
+
+        repo.profile.test {
+            assertEquals(1_700_000_000_000L, awaitItem().createdAtMillis)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

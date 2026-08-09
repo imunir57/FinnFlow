@@ -1,6 +1,7 @@
 package com.finnflow.ui
 
 import app.cash.turbine.test
+import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfile
@@ -47,6 +48,7 @@ class HomeViewModelTest {
         profileRepo = mockk(relaxed = true)
         every { repo.getTransactionsByMonth(any()) } returns flowOf(sampleTransactions)
         every { categoryRepo.getAllCategories() } returns flowOf(emptyList())
+        every { categoryRepo.getAllSubCategories() } returns flowOf(emptyList())
         every { profileRepo.profile } returns flowOf(UserProfile())
         viewModel = HomeViewModel(repo, categoryRepo, profileRepo)
     }
@@ -63,6 +65,35 @@ class HomeViewModelTest {
             assertEquals(500.0, state.totalIncome, 0.001)
             assertEquals(225.0, state.totalExpense, 0.001)
             assertEquals(275.0, state.balance, 0.001)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun subCategories_exposedById() = runTest {
+        every { categoryRepo.getAllSubCategories() } returns flowOf(
+            listOf(
+                SubCategory(id = 10, categoryId = 2, name = "Groceries"),
+                SubCategory(id = 11, categoryId = 2, name = "Dining out")
+            )
+        )
+        val vm = HomeViewModel(repo, categoryRepo, profileRepo)
+
+        vm.uiState.test {
+            val state = awaitItem()
+            assertEquals(2, state.subCategories.size)
+            assertEquals("Groceries", state.subCategories[10]?.name)
+            assertEquals("Dining out", state.subCategories[11]?.name)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun subCategories_isEmpty_whenNoneExist() = runTest {
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertFalse(state.isLoading)
+            assertTrue(state.subCategories.isEmpty())
             cancelAndIgnoreRemainingEvents()
         }
     }

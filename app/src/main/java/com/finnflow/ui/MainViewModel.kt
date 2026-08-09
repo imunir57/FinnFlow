@@ -12,17 +12,27 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val TAG = "MainViewModel"
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    profileRepository: UserProfileRepository
+    private val profileRepository: UserProfileRepository
 ) : ViewModel() {
 
     init {
         SecureLogger.d(TAG, "MainViewModel initialized")
+        // Backfills the profile's creation date on installs that predate the key. Writes once —
+        // every later start is a no-op, so this can safely run on every launch.
+        viewModelScope.launch {
+            try {
+                profileRepository.ensureCreatedAt(System.currentTimeMillis())
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Failed to record profile creation timestamp", e)
+            }
+        }
     }
 
     // null = still loading, true/false = resolved

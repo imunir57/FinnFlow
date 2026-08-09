@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.auth.GoogleAuthResult
 import com.finnflow.data.logger.SecureLogger
+import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
@@ -18,6 +19,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 
 private const val TAG = "ProfileViewModel"
@@ -26,7 +30,9 @@ data class ProfileUiState(
     val profile: UserProfile = UserProfile(),
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
-    val entryCount: Int = 0
+    val entryCount: Int = 0,
+    /** Null until there is anything to date the account from — the screen then omits the line. */
+    val memberSince: YearMonth? = null
 )
 
 @HiltViewModel
@@ -45,9 +51,25 @@ class ProfileViewModel @Inject constructor(
             profile = profile,
             totalIncome = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount },
             totalExpense = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount },
-            entryCount = transactions.size
+            entryCount = transactions.size,
+            memberSince = memberSince(profile, transactions)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProfileUiState())
+
+    /**
+     * The earlier of the stored creation date and the oldest transaction.
+     *
+     * The stored date is backfilled at app start, so on an install that predates the key it reads
+     * as "today" — the oldest transaction is the better evidence there. Taking the minimum of the
+     * two is right in both directions: a fresh install has no transactions, and an old one has
+     * records going back further than the stamp.
+     */
+    private fun memberSince(profile: UserProfile, transactions: List<Transaction>): YearMonth? {
+        val created = profile.createdAtMillis
+            ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() }
+        val firstEntry = transactions.minOfOrNull { it.date }
+        return listOfNotNull(created, firstEntry).minOrNull()?.let { YearMonth.from(it) }
+    }
 
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()

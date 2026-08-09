@@ -23,6 +23,11 @@ interface UserProfileRepository {
     suspend fun setNotificationsEnabled(enabled: Boolean)
     suspend fun setAppLockEnabled(enabled: Boolean)
     suspend fun setLastBackupTimestamp(timestamp: Long)
+
+    /**
+     * Stamps the profile's creation time with [millis], but only the first time — later calls are
+     * no-ops. Called on every app start so installs that predate the key pick one up too.
+     */
+    suspend fun ensureCreatedAt(millis: Long)
     suspend fun signInWithGoogle(displayName: String, email: String, avatarUrl: String?, googleAccountId: String)
-    suspend fun signOutGoogle()
 }
