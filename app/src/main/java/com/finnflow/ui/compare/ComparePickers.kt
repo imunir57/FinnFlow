@@ -16,8 +16,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -143,7 +143,7 @@ private fun YearStepper(year: Int, onChange: (Int) -> Unit) {
     ) {
         IconButton(onClick = { onChange(year - 1) }) {
             Icon(
-                Icons.Default.KeyboardArrowLeft,
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 "Previous year",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -158,7 +158,7 @@ private fun YearStepper(year: Int, onChange: (Int) -> Unit) {
         )
         IconButton(onClick = { onChange(year + 1) }, enabled = year < thisYear) {
             Icon(
-                Icons.Default.KeyboardArrowRight,
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 "Next year",
                 tint = if (year < thisYear) MaterialTheme.colorScheme.onSurfaceVariant
                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)

@@ -1,6 +1,8 @@
 package com.finnflow.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -22,7 +24,7 @@ val CATEGORY_ICON_MAP: Map<String, ImageVector> = mapOf(
     "car"       to Icons.Default.DirectionsCar,
     "home"      to Icons.Default.Home,
     "heart"     to Icons.Default.Favorite,
-    "book"      to Icons.Default.MenuBook,
+    "book"      to Icons.AutoMirrored.Filled.MenuBook,
     "bag"       to Icons.Default.ShoppingBag,
     "film"      to Icons.Default.Movie,
     "phone"     to Icons.Default.Phone,
@@ -32,7 +34,7 @@ val CATEGORY_ICON_MAP: Map<String, ImageVector> = mapOf(
     "wallet"    to Icons.Default.AccountBalanceWallet,
     "briefcase" to Icons.Default.Work,
     "laptop"    to Icons.Default.Laptop,
-    "trending"  to Icons.Default.TrendingUp,
+    "trending"  to Icons.AutoMirrored.Filled.TrendingUp,
     "dots"      to Icons.Default.MoreHoriz,
 )
 

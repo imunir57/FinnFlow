@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -322,7 +322,7 @@ private fun RangeDisplayRow(
             }
             IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    Icons.Default.ArrowBack, "Previous",
+                    Icons.AutoMirrored.Filled.ArrowBack, "Previous",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
@@ -337,7 +337,7 @@ private fun RangeDisplayRow(
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    Icons.Default.ArrowForward, "Next",
+                    Icons.AutoMirrored.Filled.ArrowForward, "Next",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
@@ -569,7 +569,7 @@ private fun InsightsEntryCard(onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                Icons.Default.TrendingUp,
+                Icons.AutoMirrored.Filled.TrendingUp,
                 contentDescription = null,
                 tint = FinnFlowTheme.colors.income,
                 modifier = Modifier.size(17.dp)
