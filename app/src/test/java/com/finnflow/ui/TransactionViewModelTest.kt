@@ -39,7 +39,7 @@ class TransactionViewModelTest {
         transactionRepo = mockk(relaxed = true)
         categoryRepo = mockk(relaxed = true)
         every { categoryRepo.getCategoriesByType(any()) } returns flowOf(categories)
-        every { categoryRepo.getSubCategories(any()) } returns flowOf(emptyList())
+        every { categoryRepo.getActiveSubCategories(any()) } returns flowOf(emptyList())
     }
 
     @After
@@ -151,7 +151,7 @@ class TransactionViewModelTest {
     @Test
     fun onCategoryChange_marksSubCategoriesLoadingUntilTheyArrive() = runTest {
         val subs = MutableSharedFlow<List<SubCategory>>()
-        every { categoryRepo.getSubCategories(1L) } returns subs
+        every { categoryRepo.getActiveSubCategories(1L) } returns subs
 
         val vm = makeVm()
         vm.onCategoryChange(1L)
@@ -165,8 +165,8 @@ class TransactionViewModelTest {
     fun onCategoryChange_ignoresLateEmissionFromPreviousCategory() = runTest {
         val firstSubs = MutableSharedFlow<List<SubCategory>>()
         val secondSubs = MutableSharedFlow<List<SubCategory>>()
-        every { categoryRepo.getSubCategories(1L) } returns firstSubs
-        every { categoryRepo.getSubCategories(2L) } returns secondSubs
+        every { categoryRepo.getActiveSubCategories(1L) } returns firstSubs
+        every { categoryRepo.getActiveSubCategories(2L) } returns secondSubs
 
         val vm = makeVm()
         vm.onCategoryChange(1L)
@@ -183,7 +183,7 @@ class TransactionViewModelTest {
     @Test
     fun onTypeChange_stopsCollectingTheOldCategorysSubCategories() = runTest {
         val subs = MutableSharedFlow<List<SubCategory>>()
-        every { categoryRepo.getSubCategories(1L) } returns subs
+        every { categoryRepo.getActiveSubCategories(1L) } returns subs
 
         val vm = makeVm()
         vm.onCategoryChange(1L)

@@ -158,6 +158,9 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.hilt.android)
+    // HiltTestRunner needs HiltTestApplication, which lives here rather than in hilt-android —
+    // without it the whole instrumented source set fails to compile.
+    androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.mockk.android)
     kspAndroidTest(libs.hilt.compiler)
 }

@@ -26,10 +26,20 @@ interface CategoryDao {
     @Query("DELETE FROM categories")
     suspend fun deleteAllCategories()
 
+    @Query("UPDATE categories SET isArchived = :archived WHERE id = :id")
+    suspend fun setCategoryArchived(id: Long, archived: Boolean)
+
+    /**
+     * Every category, archived included.
+     *
+     * This is the lookup query: Home, CSV export and backup resolve a transaction's category id
+     * through it, so filtering archived ones out here would leave historical entries nameless.
+     */
     @Query("SELECT * FROM categories ORDER BY name ASC")
     fun getAllCategories(): Flow<List<CategoryEntity>>
 
-    @Query("SELECT * FROM categories WHERE type = :type ORDER BY name ASC")
+    /** Pickable categories of a type — archived ones are deliberately absent. */
+    @Query("SELECT * FROM categories WHERE type = :type AND isArchived = 0 ORDER BY name ASC")
     fun getCategoriesByType(type: TransactionType): Flow<List<CategoryEntity>>
 
     @Query("SELECT * FROM categories WHERE id = :id")
@@ -52,8 +62,16 @@ interface CategoryDao {
     @Query("DELETE FROM sub_categories")
     suspend fun deleteAllSubCategories()
 
+    @Query("UPDATE sub_categories SET isArchived = :archived WHERE id = :id")
+    suspend fun setSubCategoryArchived(id: Long, archived: Boolean)
+
+    /** Every sub-category of a parent, archived included — for the management screen. */
     @Query("SELECT * FROM sub_categories WHERE categoryId = :categoryId ORDER BY name ASC")
     fun getSubCategories(categoryId: Long): Flow<List<SubCategoryEntity>>
+
+    /** Pickable sub-categories of a parent — archived ones are deliberately absent. */
+    @Query("SELECT * FROM sub_categories WHERE categoryId = :categoryId AND isArchived = 0 ORDER BY name ASC")
+    fun getActiveSubCategories(categoryId: Long): Flow<List<SubCategoryEntity>>
 
     @Query("SELECT * FROM sub_categories WHERE id = :id")
     suspend fun getSubCategoryById(id: Long): SubCategoryEntity?

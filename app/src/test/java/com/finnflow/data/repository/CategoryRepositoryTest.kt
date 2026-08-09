@@ -45,9 +45,15 @@ class CategoryRepositoryTest {
     }
 
     @Test
-    fun deleteCategory_delegatesToDao() = runTest {
-        repo.deleteCategory(domainCat)
-        coVerify { dao.deleteCategory(CategoryEntity.fromDomain(domainCat)) }
+    fun setCategoryArchived_archives() = runTest {
+        repo.setCategoryArchived(1L, archived = true)
+        coVerify { dao.setCategoryArchived(1L, true) }
+    }
+
+    @Test
+    fun setCategoryArchived_restores() = runTest {
+        repo.setCategoryArchived(1L, archived = false)
+        coVerify { dao.setCategoryArchived(1L, false) }
     }
 
     @Test
@@ -96,9 +102,36 @@ class CategoryRepositoryTest {
     }
 
     @Test
-    fun deleteSubCategory_delegatesToDao() = runTest {
-        repo.deleteSubCategory(domainSub)
-        coVerify { dao.deleteSubCategory(SubCategoryEntity.fromDomain(domainSub)) }
+    fun getActiveSubCategories_emitsMappedList() = runTest {
+        every { dao.getActiveSubCategories(1L) } returns flowOf(listOf(entitySub))
+        repo.getActiveSubCategories(1L).test {
+            val list = awaitItem()
+            assertEquals(1, list.size)
+            assertEquals(domainSub, list[0])
+            awaitComplete()
+        }
+    }
+
+    @Test
+    fun setSubCategoryArchived_archives() = runTest {
+        repo.setSubCategoryArchived(1L, archived = true)
+        coVerify { dao.setSubCategoryArchived(1L, true) }
+    }
+
+    @Test
+    fun setSubCategoryArchived_restores() = runTest {
+        repo.setSubCategoryArchived(1L, archived = false)
+        coVerify { dao.setSubCategoryArchived(1L, false) }
+    }
+
+    @Test
+    fun archiveFlag_survivesEntityMapping() = runTest {
+        val archived = CategoryEntity(id = 9L, name = "Old", type = TransactionType.EXPENSE, isArchived = true)
+        every { dao.getAllCategories() } returns flowOf(listOf(archived))
+        repo.getAllCategories().test {
+            assertTrue(awaitItem().single().isArchived)
+            awaitComplete()
+        }
     }
 
     @Test

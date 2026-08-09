@@ -26,8 +26,12 @@ data class CategoryUiState(
     val selectedType: TransactionType = TransactionType.EXPENSE,
     val expenseCount: Int = 0,
     val incomeCount: Int = 0,
+    /** Active categories of the selected type. */
     val displayItems: List<CategoryDisplayItem> = emptyList(),
+    /** Archived categories of the selected type, listed below the active ones. */
+    val archivedItems: List<CategoryDisplayItem> = emptyList(),
     val subCategories: List<SubCategory> = emptyList(),
+    val archivedSubCategories: List<SubCategory> = emptyList(),
     val selectedCategoryId: Long? = null,
     val isEditSheetOpen: Boolean = false,
     val editingCategory: Category? = null,
@@ -63,8 +67,16 @@ class CategoryViewModel @Inject constructor(
             SecureLogger.d(TAG, "Loading sub-categories for parent: $parentCategoryId")
             repository.getSubCategories(parentCategoryId)
                 .onEach { subs ->
-                    SecureLogger.d(TAG, "Sub-categories loaded: count=${subs.size}")
-                    _state.update { it.copy(subCategories = subs, selectedCategoryId = parentCategoryId, isLoading = false) }
+                    val (archived, active) = subs.partition { it.isArchived }
+                    SecureLogger.d(TAG, "Sub-categories loaded: active=${active.size}, archived=${archived.size}")
+                    _state.update {
+                        it.copy(
+                            subCategories = active,
+                            archivedSubCategories = archived,
+                            selectedCategoryId = parentCategoryId,
+                            isLoading = false
+                        )
+                    }
                 }
                 .launchIn(viewModelScope)
         } else {
@@ -77,20 +89,28 @@ class CategoryViewModel @Inject constructor(
                 .onEach { raw ->
                     val subMap = raw.subCategories.groupBy { it.categoryId }
                     val filtered = raw.categories.filter { it.type == raw.selectedType }
-                    SecureLogger.d(TAG, "Categories loaded: total=${raw.categories.size}, expense=${raw.categories.count { it.type == TransactionType.EXPENSE }}, income=${raw.categories.count { it.type == TransactionType.INCOME }}, filtered=${filtered.size}")
+                    val (archived, active) = filtered.partition { it.isArchived }
+                    // The type-toggle counts are what is pickable, so archived ones are left out
+                    // of them — they are counted by the Archived section's own header instead.
+                    val activeOfType = { type: TransactionType ->
+                        raw.categories.count { it.type == type && !it.isArchived }
+                    }
+                    SecureLogger.d(TAG, "Categories loaded: total=${raw.categories.size}, filtered=${filtered.size}, active=${active.size}, archived=${archived.size}")
+                    val toDisplayItem = { cat: Category ->
+                        val catSubs = subMap[cat.id] ?: emptyList()
+                        CategoryDisplayItem(
+                            category = cat,
+                            subCount = catSubs.size,
+                            subPreviewNames = catSubs.take(3).map { it.name }
+                        )
+                    }
                     _state.update { s ->
                         s.copy(
                             selectedType = raw.selectedType,
-                            expenseCount = raw.categories.count { it.type == TransactionType.EXPENSE },
-                            incomeCount = raw.categories.count { it.type == TransactionType.INCOME },
-                            displayItems = filtered.map { cat ->
-                                val catSubs = subMap[cat.id] ?: emptyList()
-                                CategoryDisplayItem(
-                                    category = cat,
-                                    subCount = catSubs.size,
-                                    subPreviewNames = catSubs.take(3).map { it.name }
-                                )
-                            },
+                            expenseCount = activeOfType(TransactionType.EXPENSE),
+                            incomeCount = activeOfType(TransactionType.INCOME),
+                            displayItems = active.map(toDisplayItem),
+                            archivedItems = archived.map(toDisplayItem),
                             isLoading = false
                         )
                     }
@@ -113,18 +133,6 @@ class CategoryViewModel @Inject constructor(
     fun closeEditSheet() {
         SecureLogger.d(TAG, "Closing edit sheet")
         _state.update { it.copy(isEditSheetOpen = false, editingCategory = null, isNewCategory = false) }
-    }
-
-    fun moveItem(fromIndex: Int, toIndex: Int) {
-        val current = _state.value.displayItems.toMutableList()
-        if (fromIndex !in current.indices || toIndex !in current.indices) {
-            SecureLogger.w(TAG, "Invalid move indices: fromIndex=$fromIndex, toIndex=$toIndex")
-            return
-        }
-        val item = current.removeAt(fromIndex)
-        current.add(toIndex, item)
-        SecureLogger.d(TAG, "Category reordered: item=${item.category.name}, from=$fromIndex, to=$toIndex")
-        _state.update { it.copy(displayItems = current) }
     }
 
     fun addCategory(name: String, type: TransactionType, iconName: String = "dots", colorHex: String = "#607D8B") {
@@ -151,21 +159,35 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
-    fun deleteCategory(category: Category) {
-        SecureLogger.d(TAG, "Deleting category: id=${category.id}, name=${category.name}")
+    /**
+     * Retires [category] from the pickers, keeping it for the transactions already filed under
+     * it. This is what the UI's delete action does — `transactions.categoryId` is ON DELETE
+     * RESTRICT, so a category in use could never actually be deleted anyway.
+     */
+    fun archiveCategory(category: Category) {
+        SecureLogger.d(TAG, "Archiving category: id=${category.id}, name=${category.name}")
         viewModelScope.launch {
             try {
-                repository.deleteCategory(category)
-                SecureLogger.i(TAG, "Category deleted successfully: id=${category.id}")
+                repository.setCategoryArchived(category.id, archived = true)
+                SecureLogger.i(TAG, "Category archived successfully: id=${category.id}")
+                _messages.send("\"${category.name}\" archived")
             } catch (e: Exception) {
-                SecureLogger.e(TAG, "Error deleting category: id=${category.id}", e)
-                // `transactions.categoryId` is ON DELETE RESTRICT, so a category still in use
-                // by any transaction refuses to delete. Without this the user confirms the
-                // dialog, the sheet closes, and nothing visibly happens.
-                _messages.send(
-                    "\"${category.name}\" is still used by existing transactions, so it can't " +
-                        "be deleted. Move those transactions to another category first."
-                )
+                SecureLogger.e(TAG, "Error archiving category: id=${category.id}", e)
+                _messages.send("Couldn't archive \"${category.name}\"")
+            }
+        }
+    }
+
+    fun restoreCategory(category: Category) {
+        SecureLogger.d(TAG, "Restoring category: id=${category.id}, name=${category.name}")
+        viewModelScope.launch {
+            try {
+                repository.setCategoryArchived(category.id, archived = false)
+                SecureLogger.i(TAG, "Category restored successfully: id=${category.id}")
+                _messages.send("\"${category.name}\" restored")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error restoring category: id=${category.id}", e)
+                _messages.send("Couldn't restore \"${category.name}\"")
             }
         }
     }
@@ -198,14 +220,34 @@ class CategoryViewModel @Inject constructor(
         }
     }
 
-    fun deleteSubCategory(subCategory: SubCategory) {
-        SecureLogger.d(TAG, "Deleting sub-category: id=${subCategory.id}, name=${subCategory.name}")
+    /**
+     * Retires [subCategory] from the pickers. Deleting instead would set
+     * `transactions.subCategoryId` to NULL and turn every past entry into "Uncategorised".
+     */
+    fun archiveSubCategory(subCategory: SubCategory) {
+        SecureLogger.d(TAG, "Archiving sub-category: id=${subCategory.id}, name=${subCategory.name}")
         viewModelScope.launch {
             try {
-                repository.deleteSubCategory(subCategory)
-                SecureLogger.i(TAG, "Sub-category deleted successfully: id=${subCategory.id}")
+                repository.setSubCategoryArchived(subCategory.id, archived = true)
+                SecureLogger.i(TAG, "Sub-category archived successfully: id=${subCategory.id}")
+                _messages.send("\"${subCategory.name}\" archived")
             } catch (e: Exception) {
-                SecureLogger.e(TAG, "Error deleting sub-category: id=${subCategory.id}", e)
+                SecureLogger.e(TAG, "Error archiving sub-category: id=${subCategory.id}", e)
+                _messages.send("Couldn't archive \"${subCategory.name}\"")
+            }
+        }
+    }
+
+    fun restoreSubCategory(subCategory: SubCategory) {
+        SecureLogger.d(TAG, "Restoring sub-category: id=${subCategory.id}, name=${subCategory.name}")
+        viewModelScope.launch {
+            try {
+                repository.setSubCategoryArchived(subCategory.id, archived = false)
+                SecureLogger.i(TAG, "Sub-category restored successfully: id=${subCategory.id}")
+                _messages.send("\"${subCategory.name}\" restored")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error restoring sub-category: id=${subCategory.id}", e)
+                _messages.send("Couldn't restore \"${subCategory.name}\"")
             }
         }
     }

@@ -26,20 +26,24 @@ private const val TAG = "BackupRepository"
  * Backup file schema. Kept independent from the Room entities so the on-disk
  * format is stable even if the entities change shape later.
  */
+// isArchived defaults so backups written before the archive flag existed still parse; a
+// category from one of those files can only have been in use, which is what false means.
 @Serializable
 data class BackupCategoryDto(
     val id: Long,
     val name: String,
     val type: TransactionType,
     val iconName: String,
-    val colorHex: String
+    val colorHex: String,
+    val isArchived: Boolean = false
 )
 
 @Serializable
 data class BackupSubCategoryDto(
     val id: Long,
     val categoryId: Long,
-    val name: String
+    val name: String,
+    val isArchived: Boolean = false
 )
 
 @Serializable
@@ -106,10 +110,10 @@ class BackupRepositoryImpl @Inject constructor(
 
             val payload = BackupPayload(
                 categories = categories.map {
-                    BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex)
+                    BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived)
                 },
                 subCategories = subCategories.map {
-                    BackupSubCategoryDto(it.id, it.categoryId, it.name)
+                    BackupSubCategoryDto(it.id, it.categoryId, it.name, it.isArchived)
                 },
                 transactions = transactions.map {
                     BackupTransactionDto(
@@ -224,10 +228,10 @@ class BackupRepositoryImpl @Inject constructor(
         SecureLogger.d(TAG, "Transaction subcategory referential integrity validated")
 
         val categories = payload.categories.map {
-            CategoryEntity(it.id, it.name, it.type, it.iconName, it.colorHex)
+            CategoryEntity(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived)
         }
         val subCategories = payload.subCategories.map {
-            SubCategoryEntity(it.id, it.categoryId, it.name)
+            SubCategoryEntity(it.id, it.categoryId, it.name, it.isArchived)
         }
         val transactions = payload.transactions.map {
             TransactionEntity(
