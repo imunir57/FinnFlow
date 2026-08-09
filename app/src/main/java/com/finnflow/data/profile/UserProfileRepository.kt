@@ -24,5 +24,4 @@ interface UserProfileRepository {
     suspend fun setAppLockEnabled(enabled: Boolean)
     suspend fun setLastBackupTimestamp(timestamp: Long)
     suspend fun signInWithGoogle(displayName: String, email: String, avatarUrl: String?, googleAccountId: String)
-    suspend fun signOutGoogle()
 }

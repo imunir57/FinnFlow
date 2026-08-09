@@ -502,34 +502,4 @@ class UserProfileRepositoryTest {
         assertEquals(false, result[KEY_NAME_IS_CUSTOM])
     }
 
-    // ── signOutGoogle ─────────────────────────────────────────────────────
-
-    @Test
-    fun signOutGoogle_callsUpdateData() = runTest {
-        coEvery { dataStore.updateData(any()) } returns emptyPreferences()
-
-        repo.signOutGoogle()
-
-        coVerify { dataStore.updateData(any()) }
-    }
-
-    @Test
-    fun signOutGoogle_clearsAccountFieldsButKeepsName() = runTest {
-        val transformSlot = slot<suspend (Preferences) -> Preferences>()
-        coEvery { dataStore.updateData(capture(transformSlot)) } returns emptyPreferences()
-
-        repo.signOutGoogle()
-
-        val existing = preferencesOf(
-            KEY_NAME to "Jane",
-            KEY_EMAIL to "jane@gmail.com",
-            KEY_GOOGLE_ID to "sub123",
-            KEY_SIGNED_IN to true
-        )
-        val result = transformSlot.captured(existing)
-        assertEquals("Jane", result[KEY_NAME])
-        assertNull(result[KEY_EMAIL])
-        assertNull(result[KEY_GOOGLE_ID])
-        assertEquals(false, result[KEY_SIGNED_IN])
-    }
 }

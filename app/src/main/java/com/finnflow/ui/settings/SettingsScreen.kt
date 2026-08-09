@@ -60,6 +60,7 @@ fun SettingsScreen(
     val activity = context as? FragmentActivity
     val snackbarHostState = remember { SnackbarHostState() }
     var showRestoreConfirmation by remember { mutableStateOf(false) }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
 
     var pendingExportUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -143,6 +144,32 @@ fun SettingsScreen(
             onDismiss = {
                 SecureLogger.d(TAG, "User cancelled restore confirmation")
                 showRestoreConfirmation = false
+            }
+        )
+    }
+
+    if (showSignOutConfirmation) {
+        ConfirmationDialog(
+            title = "Sign out and erase everything?",
+            message = "Signing out deletes every transaction on this device and resets your " +
+                    "categories and settings. FinnFlow keeps no copy anywhere else, so this " +
+                    "can't be undone.\n\nBack up first if you want to keep your data — you can " +
+                    "restore it after signing back in.",
+            confirmLabel = "Erase & sign out",
+            neutralLabel = "Back up first",
+            onNeutral = {
+                SecureLogger.d(TAG, "User chose to back up before signing out")
+                showSignOutConfirmation = false
+                backupLauncher.launch("finnflow_backup.json")
+            },
+            onConfirm = {
+                SecureLogger.i(TAG, "User confirmed sign out with data erase")
+                showSignOutConfirmation = false
+                viewModel.onSignOut(context)
+            },
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled sign out confirmation")
+                showSignOutConfirmation = false
             }
         )
     }
@@ -307,13 +334,15 @@ fun SettingsScreen(
                 )
             }
 
-            item {
+            // Shown only while signed in. Disabling it instead would leave a permanently greyed
+            // out button on the screen of every user who never signed in, and the action it
+            // guards is destructive enough not to advertise where it cannot apply.
+            if (profile.isSignedIn) item {
                 OutlinedButton(
                     onClick = {
                         SecureLogger.d(TAG, "User tapped Sign out button")
-                        viewModel.onSignOut(context)
+                        showSignOutConfirmation = true
                     },
-                    enabled = profile.isSignedIn,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)

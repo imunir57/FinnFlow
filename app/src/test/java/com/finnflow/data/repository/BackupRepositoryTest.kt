@@ -159,4 +159,31 @@ class BackupRepositoryTest {
         assertTrue(result.isFailure)
         assertEquals("db error", result.exceptionOrNull()?.message)
     }
+
+    // ── eraseAllData ─────────────────────────────────────────────────────
+
+    @Test
+    fun eraseAllData_clearsEveryTableThenReSeeds() = runTest {
+        repo.eraseAllData()
+
+        coVerifyOrder {
+            transactionDao.deleteAll()
+            categoryDao.deleteAllSubCategories()
+            categoryDao.deleteAllCategories()
+            // Emptying the tables leaves the database file in place, so Room's onCreate seeding
+            // never fires again — the erase has to put the defaults back itself.
+            categoryDao.insertCategory(any())
+        }
+        coVerify(atLeast = 1) { categoryDao.insertSubCategory(any()) }
+    }
+
+    @Test
+    fun eraseAllData_propagatesDbFailure() = runTest {
+        coEvery { transactionDao.deleteAll() } throws RuntimeException("db locked")
+
+        val error = runCatching { repo.eraseAllData() }.exceptionOrNull()
+
+        assertEquals("db locked", error?.message)
+        coVerify(exactly = 0) { categoryDao.insertCategory(any()) }
+    }
 }

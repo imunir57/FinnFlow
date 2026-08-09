@@ -134,16 +134,6 @@ class UserProfileRepositoryImpl @Inject constructor(
             SecureLogger.i(TAG, "User signed in with Google [nameOverride=${!nameIsCustom && displayName.isNotBlank()}, avatar=${avatarUrl != null}]")
         }
     }
-
-    override suspend fun signOutGoogle() {
-        dataStore.edit { prefs ->
-            prefs.remove(Keys.EMAIL)
-            prefs.remove(Keys.AVATAR_URL)
-            prefs.remove(Keys.GOOGLE_ACCOUNT_ID)
-            prefs[Keys.IS_SIGNED_IN] = false
-            SecureLogger.i(TAG, "User signed out from Google")
-        }
-    }
 }
 
 private fun String.toInitials(): String {
