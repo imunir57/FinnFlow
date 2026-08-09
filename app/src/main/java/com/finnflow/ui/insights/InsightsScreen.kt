@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,7 +51,7 @@ fun InsightsScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             // The back button keeps this row at the 48.dp touch-target height, so removing the
             // trailing overflow button needs no vertical compensation — only end padding, so the
@@ -73,7 +73,7 @@ fun InsightsScreen(
         ) {
             IconButton(onClick = viewModel::previousMonth, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    Icons.Default.ArrowBack, contentDescription = "Previous month",
+                    Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous month",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)
                 )
             }
@@ -82,7 +82,7 @@ fun InsightsScreen(
             Spacer(Modifier.width(4.dp))
             IconButton(onClick = viewModel::nextMonth, modifier = Modifier.size(32.dp)) {
                 Icon(
-                    Icons.Default.ArrowForward, contentDescription = "Next month",
+                    Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next month",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)
                 )
             }

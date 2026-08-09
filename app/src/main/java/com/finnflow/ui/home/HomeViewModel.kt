@@ -11,6 +11,7 @@ import com.finnflow.data.profile.UserProfileRepository
 import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -35,6 +36,7 @@ data class HomeUiState(
     val balance get() = totalIncome - totalExpense
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TransactionRepository,

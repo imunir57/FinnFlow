@@ -8,6 +8,7 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import java.time.LocalDate
 import javax.inject.Inject
@@ -58,6 +59,7 @@ private data class YearlyRaw(
     val expenseCategories: List<MonthlyCategoryTotal>
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class YearlyViewModel @Inject constructor(
     private val repository: TransactionRepository

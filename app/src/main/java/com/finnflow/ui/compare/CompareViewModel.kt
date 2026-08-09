@@ -9,6 +9,7 @@ import com.finnflow.data.model.TransactionType
 import com.finnflow.data.repository.CategoryRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
@@ -41,6 +42,7 @@ private data class CompareSelection(
     val items: List<CompareItem>
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CompareViewModel @Inject constructor(
     private val transactions: TransactionRepository,
