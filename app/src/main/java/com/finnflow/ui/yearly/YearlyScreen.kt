@@ -30,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.ui.AmountStyle
 import com.finnflow.ui.CurrencyFormat
 import com.finnflow.ui.LocalCurrencyFormat
+import com.finnflow.ui.components.periodSwipe
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.adaptForDark
 import com.finnflow.ui.theme.parseHexColor
@@ -53,6 +54,10 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
     }
     val allExpanded = expandableMonths.isNotEmpty() &&
         expandedMonths.containsAll(expandableMonths)
+    val swipeYear = periodSwipe(
+        onNext = viewModel::nextYear,
+        onPrevious = viewModel::previousYear
+    )
 
     // One scroll for the whole page: the hero and averages strip scroll away with the month
     // list rather than staying pinned above it.
@@ -60,6 +65,7 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .then(swipeYear)
     ) {
         item(key = "title") {
             Text(

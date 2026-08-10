@@ -16,7 +16,10 @@ sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")
     object Profile : Screen("profile")
     object About : Screen("about")
-    object Insights : Screen("insights")
+    /** [month] is an ISO `YYYY-MM`, so Insights opens on whatever Stats was showing. */
+    object Insights : Screen("insights/{month}") {
+        fun createRoute(month: String) = "insights/$month"
+    }
     object Compare : Screen("compare")
     object CategoryDetail : Screen("stats/category/{categoryId}/{from}/{to}/{type}") {
         fun createRoute(

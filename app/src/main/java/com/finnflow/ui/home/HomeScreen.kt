@@ -30,6 +30,7 @@ import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.components.ConfirmationDialog
+import com.finnflow.ui.components.periodSwipe
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.rememberCategoryColor
 import java.time.LocalDate
@@ -55,6 +56,17 @@ fun HomeScreen(
     // recomposition and can never be shown against a stale row.
     var pendingDelete by remember { mutableStateOf<Transaction?>(null) }
 
+    val swipeMonth = periodSwipe(
+        onNext = {
+            SecureLogger.d(TAG, "User swiped to next month")
+            viewModel.nextMonth()
+        },
+        onPrevious = {
+            SecureLogger.d(TAG, "User swiped to previous month")
+            viewModel.previousMonth()
+        }
+    )
+
     LaunchedEffect(state.selectedMonth) {
         SecureLogger.d(TAG, "HomeUiState changed: month=${state.selectedMonth}, tx_count=${state.transactions.size}, balance=${state.balance}")
     }
@@ -74,7 +86,7 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Column(modifier = Modifier.padding(padding).fillMaxSize().then(swipeMonth)) {
 
             // ── Top bar: avatar + greeting ──────────────────────────────
             // Same start/end/top/bottom rhythm as the Stats and Yearly title rows, so the

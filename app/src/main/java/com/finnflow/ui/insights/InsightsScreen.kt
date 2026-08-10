@@ -104,7 +104,6 @@ fun InsightsScreen(
             item { DailyTrendCard(state) }
             item { HighlightsCard(state) }
             item { DayOfWeekCard(state) }
-            item { FooterText() }
         }
     }
 }
@@ -124,8 +123,8 @@ private fun HeroCard(state: InsightsUiState) {
     val rateColor = if (rate >= 0) FinnFlowTheme.colors.heroIncome
                     else FinnFlowTheme.colors.heroExpense
     val message = when {
-        rate >= 30 -> "Strong month — you held back nearly a third of what came in."
-        rate >= 10 -> "Net ${money.format(net, AmountStyle.Whole, spaced = false)} saved so far. " +
+        rate >= 30 -> "Strong month — you held back ${rate.roundToInt()}% of what came in."
+        rate >= 10 ->"Net ${money.format(net, AmountStyle.Whole, spaced = false)} saved so far. " +
                 "On track for a positive close."
         rate >= 0  -> "Thin margin — most of what you earned went out again."
         else       -> "Overspent by ${money.format(-net, AmountStyle.Whole, spaced = false)} — " +
@@ -660,20 +659,4 @@ private fun MiniStat(
             )
         }
     }
-}
-
-@Composable
-private fun FooterText() {
-    Text(
-        "Insights are computed from your local transactions only.\nNothing leaves your device.",
-        fontSize = 13.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-        fontFamily = FontFamily.Serif,
-        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-        textAlign = TextAlign.Center,
-        lineHeight = 19.sp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 14.dp)
-    )
 }

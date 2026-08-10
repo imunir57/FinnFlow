@@ -1,5 +1,11 @@
 package com.finnflow.ui.transaction
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,9 +14,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,8 +30,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,6 +42,7 @@ import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.LocalCurrencyFormat
+import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.theme.*
 import java.time.Instant
 import java.time.LocalDate
@@ -100,6 +113,7 @@ fun TransactionFormScreen(
     val state by viewModel.state.collectAsState()
     var showCalc by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showDiscardPrompt by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.isSaved) {
         if (state.isSaved) {
@@ -108,10 +122,41 @@ fun TransactionFormScreen(
         }
     }
 
+    // Leaving with a form that *could* have been saved throws away real work, so it asks
+    // first. A half-filled form has nothing worth keeping and leaves without comment.
+    fun requestBack() {
+        if (state.isValid && !state.isSaved) {
+            SecureLogger.d(TAG, "Back requested with a saveable form — confirming discard")
+            showDiscardPrompt = true
+        } else {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler {
+        if (showCalc) showCalc = false else requestBack()
+    }
+
+    if (showDiscardPrompt) {
+        ConfirmationDialog(
+            title = "Discard transaction?",
+            message = "This transaction hasn't been saved. Leaving now discards what you entered.",
+            confirmLabel = "Discard",
+            dismissLabel = "Keep editing",
+            onConfirm = {
+                SecureLogger.d(TAG, "User confirmed discarding the unsaved transaction")
+                showDiscardPrompt = false
+                onNavigateBack()
+            },
+            onDismiss = { showDiscardPrompt = false }
+        )
+    }
+
     // ── Auto-advance ────────────────────────────────────────────────────────
     // Anchors are measured in window space and refreshed on every scroll, so the
     // target is computed against live positions rather than a stale layout pass.
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
     val anchors = remember { mutableStateMapOf<FormSection, SectionBounds>() }
     var viewportTop by remember { mutableFloatStateOf(0f) }
     var viewportHeight by remember { mutableIntStateOf(0) }
@@ -215,7 +260,7 @@ fun TransactionFormScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(onClick = if (showCalc) { { showCalc = false } } else onNavigateBack) {
+            IconButton(onClick = { if (showCalc) showCalc = false else requestBack() }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
             }
             Text(
@@ -224,20 +269,9 @@ fun TransactionFormScreen(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            TextButton(
-                onClick = {
-                    SecureLogger.d(TAG, "User clicked Save button: isValid=${state.isValid}")
-                    viewModel.save()
-                },
-                enabled = state.isValid && !state.isLoading && !showCalc
-            ) {
-                if (state.isLoading) CircularProgressIndicator(Modifier.size(16.dp))
-                else Text(
-                    "Save",
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (state.isValid && !showCalc) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Saving lives on the floating button over the form. This keeps the row balanced
+            // around the title without a second, permanently greyed-out Save.
+            Spacer(Modifier.width(48.dp))
         }
 
         if (showCalc) {
@@ -248,223 +282,255 @@ fun TransactionFormScreen(
             )
         } else {
             // ── Scrollable form ──────────────────────────────────────────
-            Column(
+            // `imePadding` on the frame (not on the scrolling content) shrinks the viewport
+            // when the soft keyboard opens, so the focused note field is scrolled clear of it
+            // instead of being covered — the window itself is edge-to-edge and never resizes.
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .onGloballyPositioned {
-                        viewportTop = it.positionInWindow().y
-                        viewportHeight = it.size.height
-                    }
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 18.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                    .imePadding()
             ) {
-                // Type toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .padding(3.dp)
-                    ) {
-                        Row {
-                            listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
-                                val active = state.type == type
-                                TextButton(
-                                    onClick = {
-                                        SecureLogger.d(TAG, "User clicked type toggle: $type")
-                                        viewModel.onTypeChange(type)
-                                        // Type sits above the amount, so the natural next
-                                        // step is entering the amount, not the date.
-                                        focusAmount()
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                ) {
-                                    Text(
-                                        type.name.lowercase().replaceFirstChar { it.uppercase() },
-                                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                // Hero amount display — tapping it reopens the keypad
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .sectionAnchor(FormSection.Amount, anchors)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { focusAmount() }
-                        ),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .onGloballyPositioned {
+                            viewportTop = it.positionInWindow().y
+                            viewportHeight = it.size.height
+                        }
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 18.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
+                    // Type toggle
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.Bottom
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            LocalCurrencyFormat.current.symbol,
-                            fontSize = 30.sp,
-                            fontFamily = FontFamily.Serif,
-                            color = amountColor.copy(alpha = 0.5f),
-                            modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
-                        )
-                        Text(
-                            if (state.amount.isEmpty()) "0" else state.amount,
-                            fontSize = 60.sp,
-                            fontFamily = FontFamily.Serif,
-                            fontWeight = FontWeight.Normal,
-                            color = if (state.amount.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else amountColor,
-                            lineHeight = 60.sp
-                        )
-                    }
-                    Text(
-                        if (showNumpad) "Tap keypad below — or use calculator"
-                        else "Tap the amount to edit",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 0.3.sp
-                    )
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                // Date chips
-                Column(Modifier.sectionAnchor(FormSection.Date, anchors)) {
-                    FormLabel("Date")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        dateChips.forEachIndexed { index, (label, date) ->
-                            val active = state.dateChipIndex == index
-                            ChipButton(
-                                active = active,
-                                onClick = {
-                                    SecureLogger.d(TAG, "User selected date: label=$label, index=$index")
-                                    showNumpad = false
-                                    // "Pick" advances only once the dialog is confirmed.
-                                    if (index == 3) showDatePicker = true
-                                    else {
-                                        viewModel.onDateChipChange(index)
-                                        pendingSection = FormSection.Category
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        label,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (index < 3) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .padding(3.dp)
+                        ) {
+                            Row {
+                                listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
+                                    val active = state.type == type
+                                    TextButton(
+                                        onClick = {
+                                            SecureLogger.d(TAG, "User clicked type toggle: $type")
+                                            viewModel.onTypeChange(type)
+                                            // Type sits above the amount, so the natural next
+                                            // step is entering the amount, not the date.
+                                            focusAmount()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                    ) {
                                         Text(
-                                            date.format(DateTimeFormatter.ofPattern("MMM d")),
-                                            fontSize = 10.sp,
-                                            color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    } else {
-                                        Text(
-                                            if (state.dateChipIndex == 3)
-                                                state.date.format(DateTimeFormatter.ofPattern("MMM d"))
-                                            else "···",
-                                            fontSize = 10.sp,
-                                            color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            type.name.lowercase().replaceFirstChar { it.uppercase() },
+                                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                            fontSize = 13.sp
                                         )
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(10.dp))
 
-                // Category chips
-                if (state.categories.isNotEmpty()) {
-                    Column(Modifier.sectionAnchor(FormSection.Category, anchors)) {
-                        FormLabel("Category")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            state.categories.forEach { cat ->
-                                val active = cat.id == state.categoryId
-                                val catColor = rememberCategoryColor(cat.colorHex)
-                                CategoryChip(cat = cat, catColor = catColor, active = active) {
-                                    SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
-                                    viewModel.onCategoryChange(cat.id)
-                                    advanceTo(FormSection.SubCategory)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-
-                // Subcategory chips
-                if (state.subCategories.isNotEmpty()) {
-                    Column(Modifier.sectionAnchor(FormSection.SubCategory, anchors)) {
-                        FormLabel("Sub-category")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            // None option
-                            val noneActive = state.subCategoryId == null
-                            SubChip(label = "None", active = noneActive) {
-                                SecureLogger.d(TAG, "User selected: None (no sub-category)")
-                                viewModel.onSubCategoryChange(null)
-                                advanceTo(FormSection.Note)
-                            }
-                            state.subCategories.forEach { sub ->
-                                SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
-                                    SecureLogger.d(TAG, "User selected sub-category: name=${sub.name}, id=${sub.id}")
-                                    viewModel.onSubCategoryChange(sub.id)
-                                    advanceTo(FormSection.Note)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-
-                // Note
-                Column(Modifier.sectionAnchor(FormSection.Note, anchors)) {
-                    FormLabel("Note — optional")
-                    OutlinedTextField(
-                        value = state.note,
-                        onValueChange = viewModel::onNoteChange,
-                        placeholder = { Text("e.g. Dinner with friends", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                    // Hero amount display — tapping it reopens the keypad
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // The soft keyboard and the numpad must never fight for the
-                            // bottom of the screen.
-                            .onFocusChanged { if (it.isFocused) showNumpad = false },
-                        maxLines = 2,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor   = MaterialTheme.colorScheme.onSurface,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            focusedTextColor     = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor   = MaterialTheme.colorScheme.onSurface
+                            .sectionAnchor(FormSection.Amount, anchors)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { focusAmount() }
+                            ),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                LocalCurrencyFormat.current.symbol,
+                                fontSize = 30.sp,
+                                fontFamily = FontFamily.Serif,
+                                color = amountColor.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
+                            )
+                            Text(
+                                if (state.amount.isEmpty()) "0" else state.amount,
+                                fontSize = 60.sp,
+                                fontFamily = FontFamily.Serif,
+                                fontWeight = FontWeight.Normal,
+                                color = if (state.amount.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else amountColor,
+                                lineHeight = 60.sp
+                            )
+                        }
+                        Text(
+                            if (showNumpad) "Tap keypad below — or use calculator"
+                            else "Tap the amount to edit",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            letterSpacing = 0.3.sp
                         )
-                    )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Date chips
+                    Column(Modifier.sectionAnchor(FormSection.Date, anchors)) {
+                        FormLabel("Date")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            dateChips.forEachIndexed { index, (label, date) ->
+                                val active = state.dateChipIndex == index
+                                ChipButton(
+                                    active = active,
+                                    onClick = {
+                                        SecureLogger.d(TAG, "User selected date: label=$label, index=$index")
+                                        showNumpad = false
+                                        // "Pick" advances only once the dialog is confirmed.
+                                        if (index == 3) showDatePicker = true
+                                        else {
+                                            viewModel.onDateChipChange(index)
+                                            pendingSection = FormSection.Category
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            label,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                        if (index < 3) {
+                                            Text(
+                                                date.format(DateTimeFormatter.ofPattern("MMM d")),
+                                                fontSize = 10.sp,
+                                                color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            Text(
+                                                if (state.dateChipIndex == 3)
+                                                    state.date.format(DateTimeFormatter.ofPattern("MMM d"))
+                                                else "···",
+                                                fontSize = 10.sp,
+                                                color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    // Category chips
+                    if (state.categories.isNotEmpty()) {
+                        Column(Modifier.sectionAnchor(FormSection.Category, anchors)) {
+                            FormLabel("Category")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                state.categories.forEach { cat ->
+                                    val active = cat.id == state.categoryId
+                                    val catColor = rememberCategoryColor(cat.colorHex)
+                                    CategoryChip(cat = cat, catColor = catColor, active = active) {
+                                        SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
+                                        viewModel.onCategoryChange(cat.id)
+                                        advanceTo(FormSection.SubCategory)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    // Subcategory chips
+                    if (state.subCategories.isNotEmpty()) {
+                        Column(Modifier.sectionAnchor(FormSection.SubCategory, anchors)) {
+                            FormLabel("Sub-category")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                // None option
+                                val noneActive = state.subCategoryId == null
+                                SubChip(label = "None", active = noneActive) {
+                                    SecureLogger.d(TAG, "User selected: None (no sub-category)")
+                                    viewModel.onSubCategoryChange(null)
+                                    advanceTo(FormSection.Note)
+                                }
+                                state.subCategories.forEach { sub ->
+                                    SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
+                                        SecureLogger.d(TAG, "User selected sub-category: name=${sub.name}, id=${sub.id}")
+                                        viewModel.onSubCategoryChange(sub.id)
+                                        advanceTo(FormSection.Note)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    // Note
+                    Column(Modifier.sectionAnchor(FormSection.Note, anchors)) {
+                        FormLabel("Note — optional")
+                        OutlinedTextField(
+                            value = state.note,
+                            onValueChange = viewModel::onNoteChange,
+                            placeholder = { Text("e.g. Dinner with friends", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // The soft keyboard and the numpad must never fight for the
+                                // bottom of the screen.
+                                .onFocusChanged { if (it.isFocused) showNumpad = false },
+                            maxLines = 2,
+                            // A note is one short sentence, so the keyboard offers Done rather
+                            // than a newline key that would leave no way to dismiss it. The
+                            // explicit action is also what stops Compose flagging the multi-line
+                            // field as having no enter action at all.
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Sentences,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor   = MaterialTheme.colorScheme.onSurface,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                focusedTextColor     = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor   = MaterialTheme.colorScheme.onSurface
+                            )
+                        )
+                    }
+                    // Clears the floating Save button, which overlays the bottom of the form.
+                    Spacer(Modifier.height(84.dp))
                 }
-                Spacer(Modifier.height(16.dp))
+
+                // ── Floating save ────────────────────────────────────────
+                SaveFab(
+                    visible = state.isValid,
+                    isSaving = state.isLoading,
+                    onClick = {
+                        SecureLogger.d(TAG, "User clicked floating Save: isValid=${state.isValid}")
+                        if (!state.isLoading) viewModel.save()
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 18.dp, bottom = 18.dp)
+                )
             }
 
             // ── Numpad ───────────────────────────────────────────────────
@@ -480,6 +546,44 @@ fun TransactionFormScreen(
                     onCalc      = { showCalc = true },
                     onDone      = { advanceTo(FormSection.Date) }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The form's save affordance, floating over the bottom of the fields the way Home's add
+ * button floats over the transaction list. It appears only once the form can actually be
+ * saved, so its presence is itself the answer to "is this ready?".
+ */
+@Composable
+private fun SaveFab(
+    visible: Boolean,
+    isSaving: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + scaleIn(initialScale = 0.8f),
+        exit = fadeOut() + scaleOut(targetScale = 0.8f),
+        modifier = modifier
+    ) {
+        ExtendedFloatingActionButton(
+            onClick = onClick,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Save", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             }
         }
     }
