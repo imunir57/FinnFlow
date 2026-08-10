@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,7 +42,10 @@ import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.components.CATEGORY_ICON_KEYS
 import com.finnflow.ui.components.CATEGORY_ICON_MAP
 import com.finnflow.ui.components.ConfirmationDialog
+import com.finnflow.ui.components.DraggableItem
 import com.finnflow.ui.components.categoryIconFor
+import com.finnflow.ui.components.dragHandle
+import com.finnflow.ui.components.rememberDragDropState
 import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 
@@ -91,6 +96,16 @@ fun CategoryScreen(
         viewModel.messages.collectLatest { snackbarHostState.showSnackbar(it) }
     }
 
+    val listState = rememberLazyListState()
+    // Only the active rows are draggable, and they come first in the list — the archived
+    // section and the info box below them are neither draggable nor drop targets.
+    val dragDropState = rememberDragDropState(
+        lazyListState = listState,
+        draggableItemCount = state.displayItems.size,
+        onMove = viewModel::moveCategory,
+        onDragFinished = viewModel::commitCategoryOrder
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -99,8 +114,9 @@ fun CategoryScreen(
         Column(modifier = Modifier.fillMaxSize()) {
 
             // ── Top bar ───────────────────────────────────────────────────
-            // Back arrow + title only: adding a category is the FAB's job, and a second
-            // "+" here was redundant. Padding matches the Profile / About title rows.
+            // Back arrow + title: adding a category is the FAB's job, and a second "+" here was
+            // redundant. Padding matches the Profile / About title rows. The reorder toggle
+            // earns its place because reordering changes what every other row does.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -142,6 +158,8 @@ fun CategoryScreen(
             }
 
             // ── Section header ────────────────────────────────────────────
+            // "Subs" is padded off the end by the width of the edit button plus its gap, so it
+            // sits over the sub-count pill it labels rather than over the pencil icon.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -158,30 +176,46 @@ fun CategoryScreen(
                     "Subs",
                     fontSize = 10.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(end = SUB_COUNT_HEADER_END_PADDING)
                 )
             }
 
+            if (state.displayItems.isEmpty() && state.archivedItems.isEmpty()) {
+                EmptyListMessage(
+                    icon = Icons.Default.Category,
+                    title = "No ${if (state.selectedType == TransactionType.EXPENSE) "expense" else "income"} categories yet",
+                    body = "Tap + to create one. Categories are what every transaction gets filed under.",
+                    modifier = Modifier.weight(1f)
+                )
+                return@Column
+            }
+
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 96.dp)
             ) {
                 itemsIndexed(
                     state.displayItems,
                     key = { _, item -> item.category.id }
-                ) { _, item ->
-                    CategoryRow(
-                        item = item,
-                        onOpenSubs = {
-                            SecureLogger.d(TAG, "User navigating to sub-categories: categoryId=${item.category.id}")
-                            onNavigateToSubCategories(item.category.id)
-                        },
-                        onEdit = {
-                            SecureLogger.d(TAG, "User clicked Edit: categoryId=${item.category.id}, name=${item.category.name}")
-                            viewModel.openEditSheet(item.category)
-                        }
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ) { index, item ->
+                    DraggableItem(dragDropState, index) { isDragging ->
+                        CategoryRow(
+                            item = item,
+                            isDragging = isDragging,
+                            dragHandleModifier = Modifier.dragHandle(dragDropState, index),
+                            onOpenSubs = {
+                                SecureLogger.d(TAG, "User navigating to sub-categories: categoryId=${item.category.id}")
+                                onNavigateToSubCategories(item.category.id)
+                            },
+                            onEdit = {
+                                SecureLogger.d(TAG, "User clicked Edit: categoryId=${item.category.id}, name=${item.category.name}")
+                                viewModel.openEditSheet(item.category)
+                            }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
                 }
 
                 if (state.archivedItems.isNotEmpty()) {
@@ -348,6 +382,8 @@ private fun CategoryTypeToggle(
 @Composable
 private fun CategoryRow(
     item: CategoryDisplayItem,
+    isDragging: Boolean,
+    dragHandleModifier: Modifier,
     onOpenSubs: () -> Unit,
     onEdit: () -> Unit
 ) {
@@ -358,10 +394,13 @@ private fun CategoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 22.dp, vertical = 10.dp),
+            .background(if (isDragging) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
+            .padding(start = 8.dp, end = 22.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(ROW_ITEM_SPACING)
     ) {
+        DragHandle(dragHandleModifier)
+
         // Icon swatch
         Box(
             modifier = Modifier
@@ -373,7 +412,8 @@ private fun CategoryRow(
             Icon(icon, contentDescription = null, tint = catColor, modifier = Modifier.size(18.dp))
         }
 
-        // Name + sub preview
+        // Name + sub preview. Opening the subs screen is off while reordering — a mis-tap
+        // there would navigate away mid-rearrange.
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -418,9 +458,87 @@ private fun CategoryRow(
         }
 
         // Edit button
-        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onEdit, modifier = Modifier.size(EDIT_BUTTON_SIZE)) {
             Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
         }
+    }
+}
+
+// ── Reorder handle ────────────────────────────────────────────────────────────
+
+/** Width of the trailing edit button, and the gap before it — see [SUB_COUNT_HEADER_END_PADDING]. */
+private val EDIT_BUTTON_SIZE = 32.dp
+private val ROW_ITEM_SPACING = 12.dp
+
+/** Lines the "Subs" column header up with the pill instead of the edit button beside it. */
+private val SUB_COUNT_HEADER_END_PADDING = EDIT_BUTTON_SIZE + ROW_ITEM_SPACING
+
+/** Touch target of the drag handle — also the indent archived rows leave in its place. */
+private val DRAG_HANDLE_SIZE = 32.dp
+
+/**
+ * Grab area for reordering, on every row rather than behind a mode.
+ *
+ * [modifier] carries the gesture (`Modifier.dragHandle`), so the drag starts on touch here and
+ * nowhere else: a swipe across the rest of the row still scrolls the list.
+ */
+@Composable
+private fun DragHandle(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(DRAG_HANDLE_SIZE),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.DragHandle,
+            contentDescription = "Drag to reorder",
+            tint = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+
+/** Centred in whatever space it is given, so an empty list explains itself instead of going blank. */
+@Composable
+private fun EmptyListMessage(
+    icon: ImageVector,
+    title: String,
+    body: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 40.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            title,
+            fontFamily = FontFamily.Serif,
+            fontSize = 17.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            body,
+            fontSize = 12.5.sp,
+            lineHeight = 18.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -442,10 +560,14 @@ private fun ArchivedCategoryRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 22.dp, vertical = 10.dp),
+            .padding(start = 8.dp, end = 22.dp, top = 10.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(ROW_ITEM_SPACING)
     ) {
+        // No handle: archived rows are not reorderable. The gap keeps them aligned with the
+        // active rows above rather than jutting out to the left.
+        Spacer(Modifier.size(DRAG_HANDLE_SIZE))
+
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -518,7 +640,10 @@ private fun CategoryInfoBox(modifier: Modifier = Modifier) {
             )
         }
         Text(
-            "Categories with existing transactions can't be deleted — archive them instead so old records keep their label.",
+            "Categories are archived, never deleted. An archived category stops appearing when " +
+                    "you add a transaction, while older records keep its name, icon and colour, " +
+                    "and Stats keeps counting it wherever it has amounts. Restore it from the " +
+                    "Archived list at any time.",
             fontSize    = 12.5.sp,
             color       = MaterialTheme.colorScheme.onSurfaceVariant,
             lineHeight  = 18.sp
@@ -822,6 +947,23 @@ fun SubCategoryScreen(
     // to a row that may be recomposed or recycled underneath it.
     var pendingArchive by remember { mutableStateOf<SubCategory?>(null) }
 
+    // The ViewModel has been reporting archive and restore results all along; this screen had
+    // nowhere to show them.
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.messages.collectLatest { snackbarHostState.showSnackbar(it) }
+    }
+
+    val listState = rememberLazyListState()
+    // Active sub-categories come first in the list; the archived section below them is not a
+    // drop target.
+    val dragDropState = rememberDragDropState(
+        lazyListState = listState,
+        draggableItemCount = state.subCategories.size,
+        onMove = viewModel::moveSubCategory,
+        onDragFinished = viewModel::commitSubCategoryOrder
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -833,6 +975,7 @@ fun SubCategoryScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 SecureLogger.d(TAG, "User clicked Add sub-category FAB")
@@ -842,20 +985,38 @@ fun SubCategoryScreen(
             }
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding)) {
-            itemsIndexed(state.subCategories, key = { _, sub -> sub.id }) { _, sub ->
-                SubCategoryItem(
-                    subCategory = sub,
-                    onEdit      = {
-                        SecureLogger.d(TAG, "User saved sub-category: id=${it.id}, name=${it.name}")
-                        viewModel.updateSubCategory(it)
-                    },
-                    onArchive   = {
-                        SecureLogger.d(TAG, "User requested archive of sub-category: id=${it.id}, name=${it.name}")
-                        pendingArchive = it
-                    }
-                )
-                HorizontalDivider()
+        if (state.subCategories.isEmpty() && state.archivedSubCategories.isEmpty()) {
+            EmptyListMessage(
+                icon = Icons.Default.Sell,
+                title = "No sub-categories yet",
+                body = "Tap + to add one. Sub-categories are optional — they split a category " +
+                        "into the finer detail you want Stats to break down.",
+                modifier = Modifier.fillMaxSize().padding(padding)
+            )
+            return@Scaffold
+        }
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.padding(padding)
+        ) {
+            itemsIndexed(state.subCategories, key = { _, sub -> sub.id }) { index, sub ->
+                DraggableItem(dragDropState, index) { isDragging ->
+                    SubCategoryItem(
+                        subCategory = sub,
+                        isDragging = isDragging,
+                        dragHandleModifier = Modifier.dragHandle(dragDropState, index),
+                        onEdit      = {
+                            SecureLogger.d(TAG, "User saved sub-category: id=${it.id}, name=${it.name}")
+                            viewModel.updateSubCategory(it)
+                        },
+                        onArchive   = {
+                            SecureLogger.d(TAG, "User requested archive of sub-category: id=${it.id}, name=${it.name}")
+                            pendingArchive = it
+                        }
+                    )
+                    HorizontalDivider()
+                }
             }
 
             if (state.archivedSubCategories.isNotEmpty()) {
@@ -872,6 +1033,8 @@ fun SubCategoryScreen(
                     key = { _, sub -> "archived-${sub.id}" }
                 ) { _, sub ->
                     ListItem(
+                        // Not reorderable, but indented to match the rows above it.
+                        leadingContent = { Spacer(Modifier.size(DRAG_HANDLE_SIZE)) },
                         headlineContent = {
                             Text(sub.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
@@ -950,11 +1113,18 @@ fun SubCategoryScreen(
 fun SubCategoryItem(
     subCategory: SubCategory,
     onEdit: (SubCategory) -> Unit,
-    onArchive: (SubCategory) -> Unit
+    onArchive: (SubCategory) -> Unit,
+    isDragging: Boolean = false,
+    dragHandleModifier: Modifier = Modifier
 ) {
     var showEdit by remember { mutableStateOf(false) }
 
     ListItem(
+        colors = ListItemDefaults.colors(
+            containerColor = if (isDragging) MaterialTheme.colorScheme.surfaceContainerHigh
+            else MaterialTheme.colorScheme.surface
+        ),
+        leadingContent = { DragHandle(dragHandleModifier) },
         headlineContent = { Text(subCategory.name) },
         trailingContent = {
             Row {

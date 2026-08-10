@@ -17,7 +17,7 @@ import com.finnflow.data.logger.SecureLogger
         CategoryEntity::class,
         SubCategoryEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -53,10 +53,25 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_2_3)
+        /**
+         * Adds the manual ordering column to both category tables.
+         *
+         * A default of 0 across the board is the correct backfill: every list query orders by
+         * `sortOrder` then `name`, so an existing install keeps the alphabetical order it had
+         * until the user actually reorders something.
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                SecureLogger.d(TAG, "Migrating schema 3 -> 4: adding sortOrder columns")
+                db.execSQL("ALTER TABLE categories ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE sub_categories ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_2_3, MIGRATION_3_4)
 
         init {
-            SecureLogger.d(TAG, "AppDatabase initialized with schema version 3, database name: $DATABASE_NAME")
+            SecureLogger.d(TAG, "AppDatabase initialized with schema version 4, database name: $DATABASE_NAME")
         }
     }
 }

@@ -63,12 +63,21 @@ data class CategoryEntity(
      * all — archiving is what the UI's delete action does instead. Archived categories stay out
      * of the pickers and still appear in Stats wherever they have amounts.
      */
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /**
+     * User-chosen position within its type, ascending.
+     *
+     * Every query orders by `sortOrder` then `name`, so rows that were never reordered — seeded
+     * ones, and everything that existed before this column — keep falling back to alphabetical.
+     * Reordering rewrites the whole list's positions at once, which is what makes the fallback
+     * safe: partial values would interleave unpredictably with the zeros.
+     */
+    val sortOrder: Int = 0
 ) {
-    fun toDomain() = Category(id, name, type, iconName, colorHex, isArchived)
+    fun toDomain() = Category(id, name, type, iconName, colorHex, isArchived, sortOrder)
 
     companion object {
-        fun fromDomain(c: Category) = CategoryEntity(c.id, c.name, c.type, c.iconName, c.colorHex, c.isArchived)
+        fun fromDomain(c: Category) = CategoryEntity(c.id, c.name, c.type, c.iconName, c.colorHex, c.isArchived, c.sortOrder)
     }
 }
 
@@ -94,11 +103,13 @@ data class SubCategoryEntity(
      * instead. Independent of the parent's flag: archiving a category leaves its sub-categories
      * as they are, so restoring the parent brings back exactly what was there before.
      */
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** User-chosen position within the parent category, ascending. See [CategoryEntity.sortOrder]. */
+    val sortOrder: Int = 0
 ) {
-    fun toDomain() = SubCategory(id, categoryId, name, isArchived)
+    fun toDomain() = SubCategory(id, categoryId, name, isArchived, sortOrder)
 
     companion object {
-        fun fromDomain(s: SubCategory) = SubCategoryEntity(s.id, s.categoryId, s.name, s.isArchived)
+        fun fromDomain(s: SubCategory) = SubCategoryEntity(s.id, s.categoryId, s.name, s.isArchived, s.sortOrder)
     }
 }

@@ -333,4 +333,114 @@ class CategoryViewModelTest {
         vm.addSubCategory("Breakfast")
         coVerify { repo.addSubCategory(SubCategory(categoryId = 5L, name = "Breakfast")) }
     }
+
+    // ── Reordering ─────────────────────────────────────────────────────────────
+
+    private val rentCat = Category(id = 3, name = "Rent", type = TransactionType.EXPENSE)
+    private val travelCat = Category(id = 4, name = "Travel", type = TransactionType.EXPENSE)
+
+    @Test
+    fun `moveCategory rearranges state without touching the repository`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, rentCat, travelCat))
+        val vm = makeVm()
+
+        vm.moveCategory(2, 0)
+
+        assertEquals(
+            listOf("Travel", "Food", "Rent"),
+            vm.state.value.displayItems.map { it.category.name }
+        )
+        // A drag calls this once per row crossed; writing here would be a write per crossing.
+        coVerify(exactly = 0) { repo.reorderCategories(any()) }
+    }
+
+    @Test
+    fun `successive moves compose, as they do during one drag`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, rentCat, travelCat))
+        val vm = makeVm()
+
+        vm.moveCategory(0, 1)
+        vm.moveCategory(1, 2)
+
+        assertEquals(
+            listOf("Rent", "Travel", "Food"),
+            vm.state.value.displayItems.map { it.category.name }
+        )
+    }
+
+    @Test
+    fun `commitCategoryOrder writes every id in list order`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, rentCat, travelCat))
+        val vm = makeVm()
+
+        vm.moveCategory(0, 1)
+        vm.commitCategoryOrder()
+
+        // Every id is written, not just the moved one — untouched rows still sit at the
+        // default 0 and would otherwise fall back to alphabetical around the moved row.
+        coVerify { repo.reorderCategories(listOf(3L, 1L, 4L)) }
+    }
+
+    @Test
+    fun `moveCategory ignores out-of-range indices`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, rentCat))
+        val vm = makeVm()
+
+        vm.moveCategory(0, 5)
+        vm.moveCategory(-1, 0)
+        vm.moveCategory(1, 1)
+
+        assertEquals(listOf("Food", "Rent"), vm.state.value.displayItems.map { it.category.name })
+    }
+
+    @Test
+    fun `commitCategoryOrder reports a failed write`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(listOf(expenseCat, rentCat))
+        coEvery { repo.reorderCategories(any()) } throws IllegalStateException("db locked")
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.moveCategory(0, 1)
+            vm.commitCategoryOrder()
+            assertEquals("Couldn't save the new order", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `commitCategoryOrder on an empty list writes nothing`() = runTest {
+        every { repo.getAllCategories() } returns flowOf(emptyList())
+        val vm = makeVm()
+
+        vm.commitCategoryOrder()
+
+        coVerify(exactly = 0) { repo.reorderCategories(any()) }
+    }
+
+    @Test
+    fun `moveSubCategory rearranges state and commit writes the new order`() = runTest {
+        every { repo.getSubCategories(1L) } returns flowOf(listOf(foodSub1, foodSub2, foodSub3))
+        val vm = makeVm(categoryId = 1L)
+
+        vm.moveSubCategory(2, 0)
+
+        assertEquals(
+            listOf("Coffee", "Restaurant", "Groceries"),
+            vm.state.value.subCategories.map { it.name }
+        )
+        coVerify(exactly = 0) { repo.reorderSubCategories(any()) }
+
+        vm.commitSubCategoryOrder()
+        coVerify { repo.reorderSubCategories(listOf(12L, 10L, 11L)) }
+    }
+
+    @Test
+    fun `moveSubCategory ignores out-of-range indices`() = runTest {
+        every { repo.getSubCategories(1L) } returns flowOf(listOf(foodSub1, foodSub2))
+        val vm = makeVm(categoryId = 1L)
+
+        vm.moveSubCategory(0, 9)
+
+        assertEquals(listOf("Restaurant", "Groceries"), vm.state.value.subCategories.map { it.name })
+    }
 }

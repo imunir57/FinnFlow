@@ -46,6 +46,17 @@ class DatabaseSeederTest {
     }
 
     @Test
+    fun seeder_preservesCatalogueOrder() = runTest {
+        // Seeded rows carry an explicit sortOrder, so the first screen a user sees lists them in
+        // the order SeedData declares rather than alphabetically.
+        val expenses = db.categoryDao().getCategoriesByType(TransactionType.EXPENSE).first()
+        val expected = SeedData.categories
+            .filter { it.type == TransactionType.EXPENSE }
+            .map { it.name }
+        assertEquals(expected, expenses.map { it.name })
+    }
+
+    @Test
     fun seeder_insertsAllExpenseCategories() = runTest {
         val expenses = db.categoryDao().getCategoriesByType(TransactionType.EXPENSE).first()
         val expectedCount = SeedData.categories.count { it.type == TransactionType.EXPENSE }

@@ -35,7 +35,9 @@ data class BackupCategoryDto(
     val type: TransactionType,
     val iconName: String,
     val colorHex: String,
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** Defaulted so a backup written before manual ordering existed still restores. */
+    val sortOrder: Int = 0
 )
 
 @Serializable
@@ -43,7 +45,9 @@ data class BackupSubCategoryDto(
     val id: Long,
     val categoryId: Long,
     val name: String,
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** Defaulted so a backup written before manual ordering existed still restores. */
+    val sortOrder: Int = 0
 )
 
 @Serializable
@@ -110,10 +114,10 @@ class BackupRepositoryImpl @Inject constructor(
 
             val payload = BackupPayload(
                 categories = categories.map {
-                    BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived)
+                    BackupCategoryDto(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived, it.sortOrder)
                 },
                 subCategories = subCategories.map {
-                    BackupSubCategoryDto(it.id, it.categoryId, it.name, it.isArchived)
+                    BackupSubCategoryDto(it.id, it.categoryId, it.name, it.isArchived, it.sortOrder)
                 },
                 transactions = transactions.map {
                     BackupTransactionDto(
@@ -228,10 +232,10 @@ class BackupRepositoryImpl @Inject constructor(
         SecureLogger.d(TAG, "Transaction subcategory referential integrity validated")
 
         val categories = payload.categories.map {
-            CategoryEntity(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived)
+            CategoryEntity(it.id, it.name, it.type, it.iconName, it.colorHex, it.isArchived, it.sortOrder)
         }
         val subCategories = payload.subCategories.map {
-            SubCategoryEntity(it.id, it.categoryId, it.name, it.isArchived)
+            SubCategoryEntity(it.id, it.categoryId, it.name, it.isArchived, it.sortOrder)
         }
         val transactions = payload.transactions.map {
             TransactionEntity(
