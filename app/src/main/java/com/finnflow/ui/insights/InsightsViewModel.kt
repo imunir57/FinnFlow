@@ -1,5 +1,6 @@
 package com.finnflow.ui.insights
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.finnflow.data.logger.SecureLogger
@@ -66,14 +67,23 @@ private data class InsightsRaw(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class InsightsViewModel @Inject constructor(
-    private val repository: TransactionRepository
+    private val repository: TransactionRepository,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     init {
         SecureLogger.d(TAG, "InsightsViewModel initialized")
     }
 
-    private val _month = MutableStateFlow(YearMonth.now())
+    /**
+     * The month Stats handed over, falling back to the current one. A malformed argument is
+     * not worth crashing the screen for — the current month is always a sensible answer.
+     */
+    private val _month = MutableStateFlow(
+        savedStateHandle.get<String>("month")
+            ?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
+            ?: YearMonth.now()
+    )
 
     val uiState: StateFlow<InsightsUiState> = _month.flatMapLatest { ym ->
         val prevYm = ym.minusMonths(1)

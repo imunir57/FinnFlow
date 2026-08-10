@@ -107,6 +107,30 @@ class CategoryDetailViewModelTest {
     }
 
     @Test
+    fun toggleSubCategory_expandsUncategorisedRow() = runTest {
+        val vm = makeVm()
+        vm.toggleSubCategory(null)
+        vm.state.test {
+            val state = awaitItem()
+            assertTrue(state.isExpanded(null))
+            assertFalse(state.isExpanded(10L))
+            cancelAndIgnoreRemainingEvents()
+        }
+        verify { transactionRepo.getTransactionsBySubCategory(categoryId, null, from, to, type) }
+    }
+
+    @Test
+    fun toggleSubCategory_collapsesUncategorised_whenTappedAgain() = runTest {
+        val vm = makeVm()
+        vm.toggleSubCategory(null)
+        vm.toggleSubCategory(null)
+        vm.state.test {
+            assertFalse(awaitItem().isExpanded(null))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun toggleSubCategory_collapses_whenTappedAgain() = runTest {
         val vm = makeVm()
         vm.toggleSubCategory(10L)

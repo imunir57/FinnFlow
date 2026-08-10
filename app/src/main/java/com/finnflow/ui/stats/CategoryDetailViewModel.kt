@@ -106,11 +106,10 @@ class CategoryDetailViewModel @Inject constructor(
             // Collapse
             _expandedSubCategoryId.value = CategoryDetailUiState.NONE_EXPANDED
         } else {
-            // Expand and load transactions if not yet cached
-            _expandedSubCategoryId.value = subCategoryId ?: CategoryDetailUiState.NONE_EXPANDED.also {
-                // Use null sentinel separately
-                _expandedSubCategoryId.value = null
-            }
+            // Expand and load transactions if not yet cached. null is a real id here — the
+            // "Uncategorised" row — and only NONE_EXPANDED means nothing is open, so the id
+            // is stored as-is rather than being coalesced away.
+            _expandedSubCategoryId.value = subCategoryId
             loadTransactionsIfNeeded(subCategoryId)
         }
     }

@@ -47,7 +47,7 @@ import kotlin.math.sin
 @Composable
 fun StatsScreen(
     onNavigateToCategory: (categoryId: Long, from: LocalDate, to: LocalDate, type: TransactionType) -> Unit,
-    onNavigateToInsights: () -> Unit = {},
+    onNavigateToInsights: (YearMonth) -> Unit = {},
     onNavigateToCompare: () -> Unit = {},
     viewModel: StatsViewModel = hiltViewModel()
 ) {
@@ -162,7 +162,9 @@ fun StatsScreen(
             // Insights is scoped to a single calendar month and takes no range argument, so
             // offering it under Year or Custom would open numbers unrelated to what is on screen.
             if (state.period == StatsPeriod.MONTHLY && state.selectedType == TransactionType.EXPENSE) {
-                item { InsightsEntryCard(onClick = onNavigateToInsights) }
+                // Hands over the month on screen, so Insights opens on the same figures the
+                // user was just looking at rather than snapping back to today.
+                item { InsightsEntryCard(onClick = { onNavigateToInsights(YearMonth.from(state.from)) }) }
             }
             item {
                 HorizontalDivider(
@@ -637,21 +639,6 @@ private fun CategoryListRow(
                 fontSize = 14.5.sp,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        // Progress bar
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(3.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(2.dp))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(percentInt / 100f)
-                    .height(3.dp)
-                    .background(color, RoundedCornerShape(2.dp))
             )
         }
         HorizontalDivider(

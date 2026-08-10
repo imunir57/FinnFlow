@@ -1,5 +1,6 @@
 package com.finnflow.ui.insights
 
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.Transaction
@@ -43,7 +44,10 @@ class InsightsViewModelTest {
     @After
     fun teardown() = Dispatchers.resetMain()
 
-    private fun makeVm() = InsightsViewModel(repo)
+    private fun makeVm(month: String? = null) = InsightsViewModel(
+        repo,
+        SavedStateHandle(month?.let { mapOf("month" to it) } ?: emptyMap())
+    )
 
     // ── InsightsUiState computed properties (pure unit tests) ─────────────────
 
@@ -133,6 +137,31 @@ class InsightsViewModelTest {
             assertEquals(50000.0, state.income, 0.01)
             assertEquals(15000.0, state.expense, 0.01)
             assertEquals(false, state.isLoading)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `opens on the month passed in from Stats`() = runTest {
+        val vm = makeVm("2025-03")
+        vm.uiState.test {
+            var state = awaitItem()
+            if (state.isLoading) state = awaitItem()
+            assertEquals("March 2025", state.monthLabel)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `falls back to the current month when the argument is unusable`() = runTest {
+        val vm = makeVm("not-a-month")
+        vm.uiState.test {
+            var state = awaitItem()
+            if (state.isLoading) state = awaitItem()
+            assertEquals(
+                currentYm.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy")),
+                state.monthLabel
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }

@@ -159,9 +159,9 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                             )
                         )
                     },
-                    onNavigateToInsights = {
-                        SecureLogger.d(TAG, "User navigating to Insights")
-                        navController.navigate(Screen.Insights.route)
+                    onNavigateToInsights = { month ->
+                        SecureLogger.d(TAG, "User navigating to Insights for $month")
+                        navController.navigate(Screen.Insights.createRoute(month.toString()))
                     },
                     onNavigateToCompare = {
                         SecureLogger.d(TAG, "User navigating to Compare")
@@ -170,7 +170,10 @@ fun MainNavHost(mainViewModel: MainViewModel = hiltViewModel()) {
                 )
             }
 
-            composable(Screen.Insights.route) {
+            composable(
+                route = Screen.Insights.route,
+                arguments = listOf(navArgument("month") { this.type = NavType.StringType })
+            ) {
                 SecureLogger.d(TAG, "Navigating to Insights")
                 InsightsScreen(onBack = {
                     SecureLogger.d(TAG, "User navigating back from Insights")
