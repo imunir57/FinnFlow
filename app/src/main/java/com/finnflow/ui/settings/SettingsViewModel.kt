@@ -1,10 +1,8 @@
 package com.finnflow.ui.settings
 
-import android.content.Context
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.biometric.BiometricAuthenticator
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.notification.ReminderScheduler
@@ -33,8 +31,7 @@ class SettingsViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val reminderScheduler: ReminderScheduler,
     private val biometricAuthenticator: BiometricAuthenticator,
-    private val backupRepository: BackupRepository,
-    private val googleAuthClient: GoogleAuthClient
+    private val backupRepository: BackupRepository
 ) : ViewModel() {
 
     val profile: StateFlow<UserProfile> = profileRepository.profile
@@ -206,32 +203,4 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Signs out and erases everything on the device. The screen confirms first and offers a
-     * backup — by the time this runs the user has agreed to lose the data.
-     *
-     * Order matters. Clearing the credential cache is best-effort and must never gate the rest,
-     * so it runs first in its own try. The profile clear runs last because wiping the onboarding
-     * flag sends the app back to onboarding, which tears this ViewModel down mid-coroutine —
-     * anything after it would be cancelled.
-     */
-    fun onSignOut(context: Context) {
-        SecureLogger.i(TAG, "User initiated sign out with data erase")
-        viewModelScope.launch {
-            try {
-                googleAuthClient.signOut(context)
-                SecureLogger.d(TAG, "Google authentication sign out completed")
-            } catch (e: Exception) {
-                SecureLogger.w(TAG, "Credential cache clear failed, continuing with local sign out", e)
-            }
-            try {
-                backupRepository.eraseAllData()
-                profileRepository.clearProfile()
-                SecureLogger.i(TAG, "Sign out and data erase completed successfully")
-            } catch (e: Exception) {
-                SecureLogger.e(TAG, "Sign out operation failed", e)
-                _messages.send("Sign out failed: ${e.message ?: "unknown error"}")
-            }
-        }
-    }
 }

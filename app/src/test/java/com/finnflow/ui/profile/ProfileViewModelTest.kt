@@ -8,9 +8,11 @@ import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
+import com.finnflow.data.repository.BackupRepository
 import com.finnflow.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +37,7 @@ class ProfileViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var profileRepo: UserProfileRepository
     private lateinit var txRepo: TransactionRepository
+    private lateinit var backupRepo: BackupRepository
     private lateinit var googleAuthClient: GoogleAuthClient
 
     private val sampleTransactions = listOf(
@@ -51,6 +54,7 @@ class ProfileViewModelTest {
         Dispatchers.setMain(testDispatcher)
         profileRepo = mockk(relaxed = true)
         txRepo = mockk(relaxed = true)
+        backupRepo = mockk(relaxed = true)
         googleAuthClient = mockk(relaxed = true)
         every { profileRepo.profile } returns flowOf(UserProfile())
         every { txRepo.getAllTransactions() } returns flowOf(emptyList())
@@ -59,7 +63,7 @@ class ProfileViewModelTest {
     @After
     fun teardown() = Dispatchers.resetMain()
 
-    private fun makeVm() = ProfileViewModel(profileRepo, txRepo, googleAuthClient)
+    private fun makeVm() = ProfileViewModel(profileRepo, txRepo, backupRepo, googleAuthClient)
 
     // ── uiState ───────────────────────────────────────────────────────────
 
@@ -232,5 +236,80 @@ class ProfileViewModelTest {
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    // ── onSignOut ─────────────────────────────────────────────────────────
+
+    @Test
+    fun onSignOut_clearsCredentialStateThenErasesDataThenProfile() = runTest {
+        val vm = makeVm()
+        val context = mockk<android.content.Context>(relaxed = true)
+
+        vm.onSignOut(context)
+
+        coVerifyOrder {
+            googleAuthClient.signOut(context)
+            backupRepo.eraseAllData()
+            profileRepo.clearProfile()
+        }
+    }
+
+    @Test
+    fun onSignOut_whenCredentialClearFails_stillErasesDataAndProfile() = runTest {
+        val context = mockk<android.content.Context>(relaxed = true)
+        // A local profile has no credential to clear and a device with no credential provider
+        // throws from outside ClearCredentialException; the erase must not depend on either.
+        coEvery { googleAuthClient.signOut(context) } throws IllegalStateException("no provider")
+        val vm = makeVm()
+
+        vm.onSignOut(context)
+
+        coVerify { backupRepo.eraseAllData() }
+        coVerify { profileRepo.clearProfile() }
+    }
+
+    @Test
+    fun onSignOut_whenEraseFails_leavesProfileIntactAndReportsFailure() = runTest {
+        val context = mockk<android.content.Context>(relaxed = true)
+        coEvery { backupRepo.eraseAllData() } throws IllegalStateException("db locked")
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.onSignOut(context)
+            assertEquals("Sign out failed: db locked", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { profileRepo.clearProfile() }
+    }
+
+    // ── performBackup ─────────────────────────────────────────────────────
+
+    @Test
+    fun performBackup_writesBackupAndRecordsTimestamp() = runTest {
+        val output = java.io.ByteArrayOutputStream()
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performBackup(output)
+            assertEquals("Backup saved", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify { backupRepo.exportBackup(output) }
+        coVerify { profileRepo.setLastBackupTimestamp(any()) }
+    }
+
+    @Test
+    fun performBackup_nullStream_reportsFailure() = runTest {
+        val vm = makeVm()
+
+        vm.messages.test {
+            vm.performBackup(null)
+            assertEquals("Couldn't open the selected file", awaitItem())
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        coVerify(exactly = 0) { backupRepo.exportBackup(any()) }
     }
 }
