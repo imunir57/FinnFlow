@@ -1,7 +1,6 @@
 package com.finnflow.ui.settings
 
 import app.cash.turbine.test
-import com.finnflow.data.auth.GoogleAuthClient
 import com.finnflow.data.biometric.BiometricAuthenticator
 import com.finnflow.data.notification.ReminderScheduler
 import com.finnflow.data.profile.UserProfile
@@ -10,7 +9,6 @@ import com.finnflow.data.repository.BackupRepository
 import com.finnflow.data.repository.TransactionRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -39,7 +37,6 @@ class SettingsViewModelTest {
     private lateinit var reminderScheduler: ReminderScheduler
     private lateinit var biometricAuthenticator: BiometricAuthenticator
     private lateinit var backupRepo: BackupRepository
-    private lateinit var googleAuthClient: GoogleAuthClient
 
     @Before
     fun setup() {
@@ -49,7 +46,6 @@ class SettingsViewModelTest {
         reminderScheduler = mockk(relaxed = true)
         biometricAuthenticator = mockk(relaxed = true)
         backupRepo = mockk(relaxed = true)
-        googleAuthClient = mockk(relaxed = true)
         every { repo.profile } returns flowOf(UserProfile())
     }
 
@@ -57,7 +53,7 @@ class SettingsViewModelTest {
     fun teardown() = Dispatchers.resetMain()
 
     private fun makeVm() = SettingsViewModel(
-        repo, transactionRepository, reminderScheduler, biometricAuthenticator, backupRepo, googleAuthClient
+        repo, transactionRepository, reminderScheduler, biometricAuthenticator, backupRepo
     )
 
     @Test
@@ -314,48 +310,5 @@ class SettingsViewModelTest {
         }
     }
 
-    // ── onSignOut ─────────────────────────────────────────────────────────
-
-    @Test
-    fun onSignOut_clearsCredentialStateThenErasesDataThenProfile() = runTest {
-        val vm = makeVm()
-        val context = mockk<android.content.Context>(relaxed = true)
-
-        vm.onSignOut(context)
-
-        coVerifyOrder {
-            googleAuthClient.signOut(context)
-            backupRepo.eraseAllData()
-            repo.clearProfile()
-        }
-    }
-
-    @Test
-    fun onSignOut_whenCredentialClearFails_stillErasesDataAndProfile() = runTest {
-        val context = mockk<android.content.Context>(relaxed = true)
-        // A device with no credential provider throws from outside ClearCredentialException;
-        // the local sign out must not depend on it.
-        coEvery { googleAuthClient.signOut(context) } throws IllegalStateException("no provider")
-        val vm = makeVm()
-
-        vm.onSignOut(context)
-
-        coVerify { backupRepo.eraseAllData() }
-        coVerify { repo.clearProfile() }
-    }
-
-    @Test
-    fun onSignOut_whenEraseFails_leavesProfileIntactAndReportsFailure() = runTest {
-        val context = mockk<android.content.Context>(relaxed = true)
-        coEvery { backupRepo.eraseAllData() } throws IllegalStateException("db locked")
-        val vm = makeVm()
-
-        vm.messages.test {
-            vm.onSignOut(context)
-            assertEquals("Sign out failed: db locked", awaitItem())
-            cancelAndIgnoreRemainingEvents()
-        }
-
-        coVerify(exactly = 0) { repo.clearProfile() }
-    }
+    // Sign out moved to ProfileViewModel — its tests live in ProfileViewModelTest.
 }

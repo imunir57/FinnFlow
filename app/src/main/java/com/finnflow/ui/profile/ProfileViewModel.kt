@@ -10,6 +10,7 @@ import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.data.profile.UserProfile
 import com.finnflow.data.profile.UserProfileRepository
+import com.finnflow.data.repository.BackupRepository
 import com.finnflow.data.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.OutputStream
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -39,6 +41,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val profileRepository: UserProfileRepository,
     private val transactionRepository: TransactionRepository,
+    private val backupRepository: BackupRepository,
     private val googleAuthClient: GoogleAuthClient
 ) : ViewModel() {
 
@@ -111,6 +114,60 @@ class ProfileViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 SecureLogger.e(TAG, "Exception during Google Sign-In", e)
+            }
+        }
+    }
+
+    /**
+     * Writes a JSON backup to [outputStream], offered from the sign-out confirmation so the user
+     * can keep their data before it is erased. [outputStream] comes from a SAF result on the
+     * screen, since the ViewModel has no Context.
+     */
+    fun performBackup(outputStream: OutputStream?) {
+        if (outputStream == null) {
+            SecureLogger.w(TAG, "Backup before sign out failed: output stream is null")
+            viewModelScope.launch { _messages.send("Couldn't open the selected file") }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                backupRepository.exportBackup(outputStream)
+                profileRepository.setLastBackupTimestamp(System.currentTimeMillis())
+                SecureLogger.i(TAG, "Backup before sign out completed")
+                _messages.send("Backup saved")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Backup before sign out failed", e)
+                _messages.send("Backup failed: ${e.message ?: "unknown error"}")
+            }
+        }
+    }
+
+    /**
+     * Signs out and erases everything on the device. Applies to local profiles too — there the
+     * Google credential clear is a no-op and the erase is the whole point. The screen confirms
+     * first and offers a backup, so by the time this runs the user has agreed to lose the data.
+     *
+     * Order matters. Clearing the credential cache is best-effort and must never gate the rest,
+     * so it runs first in its own try. The profile clear runs last because wiping the onboarding
+     * flag sends the app back to onboarding, which tears this ViewModel down mid-coroutine —
+     * anything after it would be cancelled.
+     */
+    fun onSignOut(context: Context) {
+        SecureLogger.i(TAG, "User initiated sign out with data erase")
+        viewModelScope.launch {
+            try {
+                googleAuthClient.signOut(context)
+                SecureLogger.d(TAG, "Google authentication sign out completed")
+            } catch (e: Exception) {
+                SecureLogger.w(TAG, "Credential cache clear failed, continuing with local sign out", e)
+            }
+            try {
+                backupRepository.eraseAllData()
+                profileRepository.clearProfile()
+                SecureLogger.i(TAG, "Sign out and data erase completed successfully")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Sign out operation failed", e)
+                _messages.send("Sign out failed: ${e.message ?: "unknown error"}")
             }
         }
     }

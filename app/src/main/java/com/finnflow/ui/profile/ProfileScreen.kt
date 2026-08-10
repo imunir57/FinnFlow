@@ -1,5 +1,8 @@
 package com.finnflow.ui.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,11 +34,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.ui.LocalCurrencyFormat
+import com.finnflow.ui.components.ConfirmationDialog
 import com.finnflow.ui.theme.*
 import kotlinx.coroutines.flow.collectLatest
 import java.time.format.DateTimeFormatter
@@ -58,6 +64,18 @@ fun ProfileScreen(
 
     var editing by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
+    var showSignOutConfirmation by remember { mutableStateOf(false) }
+
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            SecureLogger.d(TAG, "Backup file location selected before sign out")
+            viewModel.performBackup(context.contentResolver.openOutputStream(uri))
+        } else {
+            SecureLogger.d(TAG, "Backup before sign out cancelled by user")
+        }
+    }
 
     // Sign-in state comes from isSignedIn, never from email — an ID token without an email
     // claim would otherwise render "Not signed in" next to a signed-in checkmark.
@@ -89,6 +107,32 @@ fun ProfileScreen(
         focusManager.clearFocus()
         viewModel.saveName(draft)
         editing = false
+    }
+
+    if (showSignOutConfirmation) {
+        ConfirmationDialog(
+            title = if (profile.isSignedIn) "Sign out and erase everything?" else "Erase everything?",
+            message = (if (profile.isSignedIn) "Signing out deletes " else "This deletes ") +
+                    "every transaction on this device and resets your categories and settings. " +
+                    "FinnFlow keeps no copy anywhere else, so this can't be undone.\n\nBack up " +
+                    "first if you want to keep your data — you can restore it afterwards.",
+            confirmLabel = if (profile.isSignedIn) "Erase & sign out" else "Erase everything",
+            neutralLabel = "Back up first",
+            onNeutral = {
+                SecureLogger.d(TAG, "User chose to back up before signing out")
+                showSignOutConfirmation = false
+                backupLauncher.launch("finnflow_backup.json")
+            },
+            onConfirm = {
+                SecureLogger.i(TAG, "User confirmed sign out with data erase")
+                showSignOutConfirmation = false
+                viewModel.onSignOut(context)
+            },
+            onDismiss = {
+                SecureLogger.d(TAG, "User cancelled sign out confirmation")
+                showSignOutConfirmation = false
+            }
+        )
     }
 
     Scaffold(
@@ -293,6 +337,7 @@ fun ProfileScreen(
                     iconColor = FinnFlowTheme.colors.adapt(AccentCloud),
                     label = "Cloud sync",
                     subtitle = cloudSyncSubtitle,
+                    // Signing in has its own button lower down, so this row stays informational.
                     right = if (profile.isSignedIn) {
                         {
                             Icon(
@@ -302,28 +347,7 @@ fun ProfileScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
-                    } else {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(999.dp))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    "SIGN IN",
-                                    fontSize = 10.5.sp,
-                                    letterSpacing = 0.5.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    },
-                    onClick = if (profile.isSignedIn) null else {
-                        {
-                            SecureLogger.d(TAG, "User tapped Google Sign-In button")
-                            viewModel.onSignInWithGoogle(context)
-                        }
-                    }
+                    } else null
                 )
             }
             item {
@@ -335,30 +359,63 @@ fun ProfileScreen(
                 )
             }
 
-            // ── Preferences section ────────────────────────────────────────
-            item { ProfileSectionHeader("Preferences") }
-            item {
-                ProfileRow(
-                    icon = Icons.Default.CalendarMonth,
-                    iconColor = FinnFlowTheme.colors.adapt(AccentCalendar),
-                    label = "Start of month",
-                    right = { Text("1st", fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                )
-            }
-            item {
-                ProfileRow(
-                    icon = Icons.Default.Payments,
-                    iconColor = FinnFlowTheme.colors.adapt(AccentCurrency),
-                    label = "Default currency",
-                    right = {
+            // ── Sign in / sign out ─────────────────────────────────────────
+            // A local profile gets the same offer onboarding makes, spelled out as a button
+            // rather than a chip on a row — signing in is the one action here worth its own
+            // affordance. Sign out shows for everyone: it erases the device's data, which is
+            // as meaningful for a local profile as for a Google one.
+            if (!profile.isSignedIn) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                SecureLogger.d(TAG, "User tapped Google Sign-In button")
+                                viewModel.onSignInWithGoogle(context)
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            )
+                        ) {
+                            Text("Sign in with Google", fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Text(
-                            money.symbol,
-                            fontFamily = FontFamily.Serif,
-                            fontSize = 18.sp,
+                            "For a signed-in profile — no cloud sync yet",
+                            fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                )
+                }
+            }
+
+            item {
+                OutlinedButton(
+                    onClick = {
+                        SecureLogger.d(TAG, "User tapped Sign out button")
+                        showSignOutConfirmation = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(top = 18.dp, bottom = 8.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = FinnFlowTheme.colors.expense)
+                ) {
+                    Text(
+                        if (profile.isSignedIn) "Sign out" else "Erase all data",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             // ── Footer ─────────────────────────────────────────────────────
@@ -409,16 +466,30 @@ private fun StatCell(
                     modifier = Modifier.padding(end = 1.dp, bottom = 1.dp)
                 )
             }
+            // A cell is a third of the card wide, so a large amount has to shrink rather than
+            // wrap — "4,987,290.78" broken across two lines reads as two numbers.
+            var fontSize by remember(value) { mutableStateOf(18.sp) }
             Text(
                 value,
                 fontFamily = FontFamily.Serif,
-                fontSize = 18.sp,
+                fontSize = fontSize,
                 color = color,
-                letterSpacing = (-0.2).sp
+                letterSpacing = (-0.2).sp,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Clip,
+                onTextLayout = { result ->
+                    if (result.didOverflowWidth && fontSize > MIN_STAT_FONT_SIZE) {
+                        fontSize = (fontSize.value * 0.92f).sp
+                    }
+                }
             )
         }
     }
 }
+
+/** Floor for the shrink-to-fit in [StatCell] — below this the amount stops being readable. */
+private val MIN_STAT_FONT_SIZE: TextUnit = 10.sp
 
 @Composable
 private fun ProfileSectionHeader(title: String) {
