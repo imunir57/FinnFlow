@@ -30,7 +30,7 @@ import com.finnflow.data.model.Transaction
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.components.ConfirmationDialog
-import com.finnflow.ui.components.periodSwipe
+import com.finnflow.ui.components.PeriodSwipeBox
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.rememberCategoryColor
 import java.time.LocalDate
@@ -56,17 +56,6 @@ fun HomeScreen(
     // recomposition and can never be shown against a stale row.
     var pendingDelete by remember { mutableStateOf<Transaction?>(null) }
 
-    val swipeMonth = periodSwipe(
-        onNext = {
-            SecureLogger.d(TAG, "User swiped to next month")
-            viewModel.nextMonth()
-        },
-        onPrevious = {
-            SecureLogger.d(TAG, "User swiped to previous month")
-            viewModel.previousMonth()
-        }
-    )
-
     LaunchedEffect(state.selectedMonth) {
         SecureLogger.d(TAG, "HomeUiState changed: month=${state.selectedMonth}, tx_count=${state.transactions.size}, balance=${state.balance}")
     }
@@ -86,7 +75,7 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.padding(padding).fillMaxSize().then(swipeMonth)) {
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
 
             // ── Top bar: avatar + greeting ──────────────────────────────
             // Same start/end/top/bottom rhythm as the Stats and Yearly title rows, so the
@@ -132,155 +121,172 @@ fun HomeScreen(
                 }
             }
 
-            // ── Month navigation ─────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 0.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                IconButton(onClick = {
-                    SecureLogger.d(TAG, "User clicked previous month")
-                    viewModel.previousMonth()
-                }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        "Previous month",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Text(
-                    monthLabel,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                IconButton(onClick = {
-                    SecureLogger.d(TAG, "User clicked next month")
+            // The greeting stays put; everything that belongs to the selected month travels
+            // with the swipe, so the gesture reads as moving the month rather than the screen.
+            PeriodSwipeBox(
+                onNext = {
+                    SecureLogger.d(TAG, "User swiped to next month")
                     viewModel.nextMonth()
-                }) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        "Next month",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+                },
+                onPrevious = {
+                    SecureLogger.d(TAG, "User swiped to previous month")
+                    viewModel.previousMonth()
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
 
-            if (state.isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                return@Column
-            }
-
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-
-                // ── Hero balance card ────────────────────────────────────
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(FinnFlowTheme.colors.heroGradient)
-                    ) {
-                        // Decorative watermark. Follows the active currency: a Taka glyph on a
-                        // dollar user's balance card was part of the bug being fixed. Height is
-                        // set by the font's line metrics, not the glyph, so the card does not
-                        // resize when the symbol changes.
-                        Text(
-                            money.symbol,
-                            fontSize = 160.sp,
-                            fontFamily = FontFamily.Serif,
-                            color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = 12.dp, y = (-28).dp)
+                // ── Month navigation ─────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 0.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    IconButton(onClick = {
+                        SecureLogger.d(TAG, "User clicked previous month")
+                        viewModel.previousMonth()
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            "Previous month",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Column(modifier = Modifier.padding(22.dp)) {
-                            Text(
-                                "NET BALANCE",
-                                fontSize = 10.sp,
-                                letterSpacing = 1.sp,
-                                color = FinnFlowTheme.colors.heroOnSurfaceVariant
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.Top) {
-                                Text(
-                                    money.symbol,
-                                    fontSize = 24.sp,
-                                    fontFamily = FontFamily.Serif,
-                                    color = FinnFlowTheme.colors.heroOnSurfaceVariant,
-                                    modifier = Modifier.padding(top = 8.dp, end = 4.dp)
-                                )
-                                Text(
-                                    money.amount(state.balance),
-                                    fontSize = 52.sp,
-                                    fontFamily = FontFamily.Serif,
-                                    fontWeight = FontWeight.Normal,
-                                    color = FinnFlowTheme.colors.heroOnSurface,
-                                    lineHeight = 52.sp
-                                )
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            HorizontalDivider(
-                                color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.12f)
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                HeroStat(
-                                    "INCOME",
-                                    state.totalIncome,
-                                    FinnFlowTheme.colors.heroIncome,
-                                    Modifier.weight(1f)
-                                )
-                                HeroStat(
-                                    "EXPENSE",
-                                    state.totalExpense,
-                                    FinnFlowTheme.colors.heroExpense,
-                                    Modifier.weight(1f)
-                                )
-                            }
-                        }
+                    }
+                    Text(
+                        monthLabel,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                    IconButton(onClick = {
+                        SecureLogger.d(TAG, "User clicked next month")
+                        viewModel.nextMonth()
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            "Next month",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
 
-                // ── Daily groups ─────────────────────────────────────────
-                if (state.dailyGroups.isEmpty()) {
+                if (state.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    return@Column
+                }
+
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+
+                    // ── Hero balance card ────────────────────────────────────
                     item {
                         Box(
-                            modifier = Modifier.fillMaxWidth().padding(40.dp),
-                            contentAlignment = Alignment.Center
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(FinnFlowTheme.colors.heroGradient)
                         ) {
-                            Text("No transactions this month",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                } else {
-                    state.dailyGroups.entries.sortedByDescending { it.key }.forEach { (date, txList) ->
-                        val dayTotal = txList.sumOf { if (it.type == TransactionType.INCOME) it.amount else -it.amount }
-                        item(key = "hdr-$date") {
-                            DaySectionHeader(date = date, dayTotal = dayTotal)
-                        }
-                        items(txList, key = { it.id }) { tx ->
-                            val cat = state.categories[tx.categoryId]
-                            TxRow(
-                                transaction     = tx,
-                                category        = cat,
-                                subCategoryName = state.subCategoryNameOf(tx),
-                                onEdit          = { onEditTransaction(tx.id) },
-                                onDelete        = { pendingDelete = tx }
+                            // Decorative watermark. Follows the active currency: a Taka glyph on a
+                            // dollar user's balance card was part of the bug being fixed. Height is
+                            // set by the font's line metrics, not the glyph, so the card does not
+                            // resize when the symbol changes.
+                            Text(
+                                money.symbol,
+                                fontSize = 160.sp,
+                                fontFamily = FontFamily.Serif,
+                                color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.05f),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 12.dp, y = (-28).dp)
                             )
+                            Column(modifier = Modifier.padding(22.dp)) {
+                                Text(
+                                    "NET BALANCE",
+                                    fontSize = 10.sp,
+                                    letterSpacing = 1.sp,
+                                    color = FinnFlowTheme.colors.heroOnSurfaceVariant
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.Top) {
+                                    Text(
+                                        money.symbol,
+                                        fontSize = 24.sp,
+                                        fontFamily = FontFamily.Serif,
+                                        color = FinnFlowTheme.colors.heroOnSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp, end = 4.dp)
+                                    )
+                                    Text(
+                                        money.amount(state.balance),
+                                        fontSize = 52.sp,
+                                        fontFamily = FontFamily.Serif,
+                                        fontWeight = FontWeight.Normal,
+                                        color = FinnFlowTheme.colors.heroOnSurface,
+                                        lineHeight = 52.sp
+                                    )
+                                }
+                                Spacer(Modifier.height(16.dp))
+                                HorizontalDivider(
+                                    color = FinnFlowTheme.colors.heroOnSurface.copy(alpha = 0.12f)
+                                )
+                                Spacer(Modifier.height(14.dp))
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    HeroStat(
+                                        "INCOME",
+                                        state.totalIncome,
+                                        FinnFlowTheme.colors.heroIncome,
+                                        Modifier.weight(1f)
+                                    )
+                                    HeroStat(
+                                        "EXPENSE",
+                                        state.totalExpense,
+                                        FinnFlowTheme.colors.heroExpense,
+                                        Modifier.weight(1f)
+                                    )
+                                }
+                            }
                         }
                     }
-                }
 
-                item { Spacer(Modifier.height(100.dp)) }
+                    // ── Daily groups ─────────────────────────────────────────
+                    if (state.dailyGroups.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(40.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("No transactions this month",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    } else {
+                        state.dailyGroups.entries.sortedByDescending { it.key }.forEach { (date, txList) ->
+                            val dayTotal = txList.sumOf { if (it.type == TransactionType.INCOME) it.amount else -it.amount }
+                            item(key = "hdr-$date") {
+                                DaySectionHeader(date = date, dayTotal = dayTotal)
+                            }
+                            items(txList, key = { it.id }) { tx ->
+                                val cat = state.categories[tx.categoryId]
+                                TxRow(
+                                    transaction     = tx,
+                                    category        = cat,
+                                    subCategoryName = state.subCategoryNameOf(tx),
+                                    onEdit          = { onEditTransaction(tx.id) },
+                                    onDelete        = { pendingDelete = tx }
+                                )
+                            }
+                        }
+                    }
+
+                    item { Spacer(Modifier.height(100.dp)) }
+                }
+                }
             }
         }
     }

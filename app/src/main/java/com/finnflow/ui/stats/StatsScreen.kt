@@ -33,6 +33,7 @@ import com.finnflow.data.model.CategorySummary
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.AmountStyle
 import com.finnflow.ui.LocalCurrencyFormat
+import com.finnflow.ui.components.PeriodSwipeBox
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.rememberCategoryColor
 import java.time.Instant
@@ -119,105 +120,133 @@ fun StatsScreen(
             onNavigateToCompare = onNavigateToCompare
         )
 
-        // ── Range display: < label >   /   [from] – [to] ──────────────────
-        RangeDisplayRow(
-            period     = state.period,
-            from       = state.from,
-            to         = state.to,
-            onPrev     = viewModel::previousPeriod,
-            onNext     = viewModel::nextPeriod,
-            onPickFrom = { showFromPicker = true },
-            onPickTo   = { showToPicker   = true }
-        )
-
-        // ── Income / Expense toggle (centered) ────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center
+        // Everything below the tabs belongs to the period on screen, so it travels as one panel
+        // under the swipe. The title and tabs stay put — they do not change with the range.
+        // A custom range has nothing to step to, so the gesture is off there.
+        PeriodSwipeBox(
+            onNext = viewModel::nextPeriod,
+            onPrevious = viewModel::previousPeriod,
+            enabled = state.period != StatsPeriod.CUSTOM,
+            modifier = Modifier.fillMaxSize()
         ) {
-            TypeToggle(selectedType = state.selectedType, onTypeChange = viewModel::onTypeChange)
-        }
-
-        if (state.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-            return@Column
-        }
-
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            item {
-                DonutChartSection(
-                    summaries   = state.activeSummary,
-                    totalAmount = state.totalAmount,
-                    label       = if (state.selectedType == TransactionType.EXPENSE) "Total out" else "Total in",
-                    percentOf   = state::percentOf
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ── Range display: < label >   /   [from] – [to] ──────────
+                RangeDisplayRow(
+                    period     = state.period,
+                    from       = state.from,
+                    to         = state.to,
+                    onPrev     = viewModel::previousPeriod,
+                    onNext     = viewModel::nextPeriod,
+                    onPickFrom = { showFromPicker = true },
+                    onPickTo   = { showToPicker   = true }
                 )
-            }
-            item {
-                LegendRow(summaries = state.activeSummary, percentOf = state::percentOf)
-            }
-            // Insights is scoped to a single calendar month and takes no range argument, so
-            // offering it under Year or Custom would open numbers unrelated to what is on screen.
-            if (state.period == StatsPeriod.MONTHLY && state.selectedType == TransactionType.EXPENSE) {
-                // Hands over the month on screen, so Insights opens on the same figures the
-                // user was just looking at rather than snapping back to today.
-                item { InsightsEntryCard(onClick = { onNavigateToInsights(YearMonth.from(state.from)) }) }
-            }
-            item {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
+
+                // ── Income / Expense toggle (centered) ────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    TypeToggle(
+                        selectedType = state.selectedType,
+                        onTypeChange = viewModel::onTypeChange
+                    )
+                }
+
+                if (state.isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    return@Column
+                }
+
+                StatsContentList(
+                    state = state,
+                    onNavigateToCategory = onNavigateToCategory,
+                    onNavigateToInsights = onNavigateToInsights
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsContentList(
+    state: StatsUiState,
+    onNavigateToCategory: (categoryId: Long, from: LocalDate, to: LocalDate, type: TransactionType) -> Unit,
+    onNavigateToInsights: (YearMonth) -> Unit
+) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item {
+            DonutChartSection(
+                summaries   = state.activeSummary,
+                totalAmount = state.totalAmount,
+                label       = if (state.selectedType == TransactionType.EXPENSE) "Total out" else "Total in",
+                percentOf   = state::percentOf
+            )
+        }
+        item {
+            LegendRow(summaries = state.activeSummary, percentOf = state::percentOf)
+        }
+        // Insights is scoped to a single calendar month and takes no range argument, so
+        // offering it under Year or Custom would open numbers unrelated to what is on screen.
+        if (state.period == StatsPeriod.MONTHLY && state.selectedType == TransactionType.EXPENSE) {
+            // Hands over the month on screen, so Insights opens on the same figures the
+            // user was just looking at rather than snapping back to today.
+            item { InsightsEntryCard(onClick = { onNavigateToInsights(YearMonth.from(state.from)) }) }
+        }
+        item {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Category",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    "Amount",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+        if (state.activeSummary.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(40.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Category",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        "Amount",
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
+                        "No data for selected period",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            if (state.activeSummary.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "No data for selected period",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+        } else {
+            items(state.activeSummary.size) { index ->
+                val summary = state.activeSummary[index]
+                CategoryListRow(
+                    summary = summary,
+                    percentInt = state.percentOf(summary.totalAmount),
+                    onClick = {
+                        onNavigateToCategory(summary.categoryId, state.from, state.to, state.selectedType)
                     }
-                }
-            } else {
-                items(state.activeSummary.size) { index ->
-                    val summary = state.activeSummary[index]
-                    CategoryListRow(
-                        summary = summary,
-                        percentInt = state.percentOf(summary.totalAmount),
-                        onClick = {
-                            onNavigateToCategory(summary.categoryId, state.from, state.to, state.selectedType)
-                        }
-                    )
-                }
+                )
             }
-            item { Spacer(Modifier.height(80.dp)) }
         }
+        item { Spacer(Modifier.height(80.dp)) }
     }
 }
 
