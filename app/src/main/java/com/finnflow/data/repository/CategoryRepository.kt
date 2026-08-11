@@ -33,6 +33,14 @@ interface CategoryRepository {
     /** Pickable categories of a type, archived ones excluded. */
     fun getCategoriesByType(type: TransactionType): Flow<List<Category>>
 
+    /**
+     * Persists [categoryIdsInOrder] as the list order, positions 0..n-1.
+     *
+     * Callers pass the complete list of the type being reordered, not just the moved row — see
+     * `CategoryDao.setCategoryOrder`.
+     */
+    suspend fun reorderCategories(categoryIdsInOrder: List<Long>)
+
     suspend fun addSubCategory(subCategory: SubCategory): Long
     suspend fun updateSubCategory(subCategory: SubCategory)
     suspend fun setSubCategoryArchived(subCategoryId: Long, archived: Boolean)
@@ -42,6 +50,9 @@ interface CategoryRepository {
 
     /** Pickable sub-categories of a parent, archived ones excluded. */
     fun getActiveSubCategories(categoryId: Long): Flow<List<SubCategory>>
+
+    /** Persists [subCategoryIdsInOrder] as the list order within their parent, positions 0..n-1. */
+    suspend fun reorderSubCategories(subCategoryIdsInOrder: List<Long>)
 
     fun getAllSubCategories(): Flow<List<SubCategory>>
 }
@@ -121,6 +132,17 @@ class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun reorderCategories(categoryIdsInOrder: List<Long>) {
+        SecureLogger.d(TAG, "Starting reorderCategories for ${categoryIdsInOrder.size} categories")
+        try {
+            dao.setCategoryOrder(categoryIdsInOrder)
+            SecureLogger.i(TAG, "Category order saved for ${categoryIdsInOrder.size} categories")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to save category order", e)
+            throw e
+        }
+    }
+
     override suspend fun addSubCategory(subCategory: SubCategory): Long {
         SecureLogger.d(TAG, "Starting addSubCategory operation for: ${subCategory.name}, categoryId: ${subCategory.categoryId}")
         return try {
@@ -169,6 +191,17 @@ class CategoryRepositoryImpl @Inject constructor(
         return dao.getActiveSubCategories(categoryId).map { list ->
             SecureLogger.d(TAG, "Retrieved ${list.size} active subcategories for categoryId: $categoryId")
             list.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun reorderSubCategories(subCategoryIdsInOrder: List<Long>) {
+        SecureLogger.d(TAG, "Starting reorderSubCategories for ${subCategoryIdsInOrder.size} sub-categories")
+        try {
+            dao.setSubCategoryOrder(subCategoryIdsInOrder)
+            SecureLogger.i(TAG, "Sub-category order saved for ${subCategoryIdsInOrder.size} sub-categories")
+        } catch (e: Exception) {
+            SecureLogger.e(TAG, "Failed to save sub-category order", e)
+            throw e
         }
     }
 

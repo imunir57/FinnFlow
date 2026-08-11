@@ -25,7 +25,9 @@ data class Category(
     val iconName: String = "",
     val colorHex: String = "#607D8B",
     /** Retired from the pickers, but kept so past transactions keep their label. */
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** User-chosen position within its type; ties fall back to alphabetical. */
+    val sortOrder: Int = 0
 )
 
 data class SubCategory(
@@ -33,7 +35,9 @@ data class SubCategory(
     val categoryId: Long,
     val name: String,
     /** Retired from the pickers, but kept so past transactions keep their label. */
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    /** User-chosen position within the parent category; ties fall back to alphabetical. */
+    val sortOrder: Int = 0
 )
 
 data class CategoryWithSubCategories(

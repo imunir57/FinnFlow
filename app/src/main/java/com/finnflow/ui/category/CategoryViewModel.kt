@@ -124,6 +124,74 @@ class CategoryViewModel @Inject constructor(
         _selectedType.value = type
     }
 
+    /**
+     * Moves the active category at [fromIndex] to [toIndex] in state only.
+     *
+     * A drag fires this repeatedly — once per row the finger passes — so it must stay in
+     * memory; [commitCategoryOrder] writes the result when the finger lifts. Archived
+     * categories are not part of this: they sit in their own section and are not draggable.
+     */
+    fun moveCategory(fromIndex: Int, toIndex: Int) {
+        val current = _state.value.displayItems
+        if (fromIndex !in current.indices || toIndex !in current.indices || fromIndex == toIndex) {
+            SecureLogger.d(TAG, "Ignoring out-of-range category move: from=$fromIndex, to=$toIndex, size=${current.size}")
+            return
+        }
+        SecureLogger.d(TAG, "Moving category: from=$fromIndex, to=$toIndex")
+        _state.update {
+            it.copy(displayItems = current.toMutableList().apply { add(toIndex, removeAt(fromIndex)) })
+        }
+    }
+
+    /**
+     * Persists the order the drag left behind.
+     *
+     * The repository flow re-emits the same order straight after, replacing the in-memory copy
+     * with the stored one. On failure the list is left as the user arranged it and the message
+     * says it did not stick — snapping the rows back mid-gesture would be worse.
+     */
+    fun commitCategoryOrder() {
+        val ids = _state.value.displayItems.map { it.category.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                repository.reorderCategories(ids)
+                SecureLogger.i(TAG, "Category order saved: ${ids.size} categories")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error saving category order", e)
+                _messages.send("Couldn't save the new order")
+            }
+        }
+    }
+
+    /** Sub-category counterpart of [moveCategory]; archived sub-categories are excluded. */
+    fun moveSubCategory(fromIndex: Int, toIndex: Int) {
+        val current = _state.value.subCategories
+        if (fromIndex !in current.indices || toIndex !in current.indices || fromIndex == toIndex) {
+            SecureLogger.d(TAG, "Ignoring out-of-range sub-category move: from=$fromIndex, to=$toIndex, size=${current.size}")
+            return
+        }
+        SecureLogger.d(TAG, "Moving sub-category: from=$fromIndex, to=$toIndex")
+        _state.update {
+            it.copy(subCategories = current.toMutableList().apply { add(toIndex, removeAt(fromIndex)) })
+        }
+    }
+
+    /** Sub-category counterpart of [commitCategoryOrder]. */
+    fun commitSubCategoryOrder() {
+        val ids = _state.value.subCategories.map { it.id }
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                repository.reorderSubCategories(ids)
+                SecureLogger.i(TAG, "Sub-category order saved: ${ids.size} sub-categories")
+            } catch (e: Exception) {
+                SecureLogger.e(TAG, "Error saving sub-category order", e)
+                _messages.send("Couldn't save the new order")
+            }
+        }
+    }
+
     fun openEditSheet(category: Category? = null) {
         val action = if (category == null) "create new" else "edit (id=${category.id})"
         SecureLogger.d(TAG, "Opening edit sheet: action=$action")

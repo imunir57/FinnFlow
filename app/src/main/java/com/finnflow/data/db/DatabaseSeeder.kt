@@ -50,21 +50,25 @@ internal suspend fun seedDefaultCategories(categoryDao: CategoryDao) {
     var totalSubCategoriesInserted = 0
 
     try {
-        SeedData.categories.forEach { seedCat ->
+        // Seeded rows carry their listed position rather than the default 0, so the order the
+        // catalogue is written in is the order the user first sees — and reordering one row
+        // later does not shuffle everything else into alphabetical order around it.
+        SeedData.categories.forEachIndexed { catIndex, seedCat ->
             SecureLogger.d(SEED_TAG, "Inserting category: ${seedCat.name} (type: ${seedCat.type})")
             val catId = categoryDao.insertCategory(
                 CategoryEntity(
                     name = seedCat.name,
                     type = seedCat.type,
                     iconName = seedCat.iconName,
-                    colorHex = seedCat.colorHex
+                    colorHex = seedCat.colorHex,
+                    sortOrder = catIndex
                 )
             )
             SecureLogger.d(SEED_TAG, "Category inserted with ID: $catId, name: ${seedCat.name}")
 
-            seedCat.subCategories.forEach { subName ->
+            seedCat.subCategories.forEachIndexed { subIndex, subName ->
                 categoryDao.insertSubCategory(
-                    SubCategoryEntity(categoryId = catId, name = subName)
+                    SubCategoryEntity(categoryId = catId, name = subName, sortOrder = subIndex)
                 )
                 totalSubCategoriesInserted++
             }

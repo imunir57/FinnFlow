@@ -12,18 +12,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import com.finnflow.BuildConfig
 import com.finnflow.R
+
+/** Size the launcher icon is drawn at — also the size it gets rasterized to. */
+private val AppIconSize = 76.dp
 
 @Composable
 fun AboutScreen(
@@ -60,13 +68,37 @@ fun AboutScreen(
         ) {
             // The app's own launcher icon, not a stand-in glyph. It ships its own background and
             // corner radius, so it is clipped to match rather than dropped onto a tinted circle.
-            Image(
-                painter = painterResource(R.mipmap.ic_launcher),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(RoundedCornerShape(20.dp))
-            )
+            //
+            // Rasterized through the drawable rather than loaded with painterResource: from API
+            // 26 the launcher icon resolves to the <adaptive-icon> XML, which painterResource
+            // rejects outright ("Only VectorDrawables and rasterized asset types are supported").
+            // AdaptiveIconDrawable masks its own layers when it draws, so the bitmap already has
+            // the icon's shape.
+            val context = LocalContext.current
+            val iconSizePx = with(LocalDensity.current) { AppIconSize.roundToPx() }
+            val appIcon = remember(context, iconSizePx) {
+                ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+                    ?.toBitmap(width = iconSizePx, height = iconSizePx)
+                    ?.asImageBitmap()
+            }
+            if (appIcon != null) {
+                Image(
+                    bitmap = appIcon,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(AppIconSize)
+                        .clip(RoundedCornerShape(20.dp))
+                )
+            } else {
+                // Nothing to draw is better than nothing at all: the screen keeps its shape and
+                // the version details below stay where they are.
+                Box(
+                    modifier = Modifier
+                        .size(AppIconSize)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                )
+            }
 
             Spacer(Modifier.height(18.dp))
 

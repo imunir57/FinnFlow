@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.data.logger.SecureLogger
 import com.finnflow.data.model.Category
+import com.finnflow.data.model.SubCategory
 import com.finnflow.data.model.TransactionType
 import com.finnflow.ui.LocalCurrencyFormat
 import com.finnflow.ui.components.ConfirmationDialog
@@ -227,24 +228,16 @@ fun TransactionFormScreen(
 
     val amountColor = if (state.type == TransactionType.INCOME) FinnFlowTheme.colors.income else MaterialTheme.colorScheme.onSurface
 
-    // Date picker dialog
     if (showDatePicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    pickerState.selectedDateMillis?.let { millis ->
-                        viewModel.onDateChange(Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate())
-                    }
-                    showDatePicker = false
-                    advanceTo(FormSection.Category)
-                }) { Text("OK") }
+        FormDatePickerDialog(
+            date = state.date,
+            onConfirm = { picked ->
+                picked?.let(viewModel::onDateChange)
+                showDatePicker = false
+                advanceTo(FormSection.Category)
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
-        ) { DatePicker(state = pickerState) }
+            onDismiss = { showDatePicker = false }
+        )
     }
 
     Column(
@@ -252,27 +245,10 @@ fun TransactionFormScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // ── Top bar ──────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(onClick = { if (showCalc) showCalc = false else requestBack() }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
-            }
-            Text(
-                if (showCalc) "Calculator" else "New transaction",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            // Saving lives on the floating button over the form. This keeps the row balanced
-            // around the title without a second, permanently greyed-out Save.
-            Spacer(Modifier.width(48.dp))
-        }
+        FormTopBar(
+            title = if (showCalc) "Calculator" else "New transaction",
+            onBack = { if (showCalc) showCalc = false else requestBack() }
+        )
 
         if (showCalc) {
             CalculatorView(
@@ -301,220 +277,86 @@ fun TransactionFormScreen(
                         .padding(horizontal = 18.dp, vertical = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
-                    // Type toggle
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .padding(3.dp)
-                        ) {
-                            Row {
-                                listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
-                                    val active = state.type == type
-                                    TextButton(
-                                        onClick = {
-                                            SecureLogger.d(TAG, "User clicked type toggle: $type")
-                                            viewModel.onTypeChange(type)
-                                            // Type sits above the amount, so the natural next
-                                            // step is entering the amount, not the date.
-                                            focusAmount()
-                                        },
-                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
-                                    ) {
-                                        Text(
-                                            type.name.lowercase().replaceFirstChar { it.uppercase() },
-                                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                            fontSize = 13.sp
-                                        )
-                                    }
-                                }
-                            }
+                    TypeToggle(
+                        selected = state.type,
+                        onSelect = { type ->
+                            SecureLogger.d(TAG, "User clicked type toggle: $type")
+                            viewModel.onTypeChange(type)
+                            // Type sits above the amount, so the natural next step is
+                            // entering the amount, not the date.
+                            focusAmount()
                         }
-                    }
+                    )
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Hero amount display — tapping it reopens the keypad
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .sectionAnchor(FormSection.Amount, anchors)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { focusAmount() }
-                            ),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Text(
-                                LocalCurrencyFormat.current.symbol,
-                                fontSize = 30.sp,
-                                fontFamily = FontFamily.Serif,
-                                color = amountColor.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
-                            )
-                            Text(
-                                if (state.amount.isEmpty()) "0" else state.amount,
-                                fontSize = 60.sp,
-                                fontFamily = FontFamily.Serif,
-                                fontWeight = FontWeight.Normal,
-                                color = if (state.amount.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else amountColor,
-                                lineHeight = 60.sp
-                            )
-                        }
-                        Text(
-                            if (showNumpad) "Tap keypad below — or use calculator"
-                            else "Tap the amount to edit",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 0.3.sp
-                        )
-                    }
+                    AmountHero(
+                        amount = state.amount,
+                        amountColor = amountColor,
+                        hint = if (showNumpad) "Tap keypad below — or use calculator"
+                        else "Tap the amount to edit",
+                        onTap = { focusAmount() },
+                        modifier = Modifier.sectionAnchor(FormSection.Amount, anchors)
+                    )
 
                     Spacer(Modifier.height(20.dp))
 
-                    // Date chips
-                    Column(Modifier.sectionAnchor(FormSection.Date, anchors)) {
-                        FormLabel("Date")
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            dateChips.forEachIndexed { index, (label, date) ->
-                                val active = state.dateChipIndex == index
-                                ChipButton(
-                                    active = active,
-                                    onClick = {
-                                        SecureLogger.d(TAG, "User selected date: label=$label, index=$index")
-                                        showNumpad = false
-                                        // "Pick" advances only once the dialog is confirmed.
-                                        if (index == 3) showDatePicker = true
-                                        else {
-                                            viewModel.onDateChipChange(index)
-                                            pendingSection = FormSection.Category
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            label,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                        if (index < 3) {
-                                            Text(
-                                                date.format(DateTimeFormatter.ofPattern("MMM d")),
-                                                fontSize = 10.sp,
-                                                color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        } else {
-                                            Text(
-                                                if (state.dateChipIndex == 3)
-                                                    state.date.format(DateTimeFormatter.ofPattern("MMM d"))
-                                                else "···",
-                                                fontSize = 10.sp,
-                                                color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
+                    DateSection(
+                        chips = dateChips,
+                        selectedIndex = state.dateChipIndex,
+                        pickedDate = state.date,
+                        onChipClick = { index, label ->
+                            SecureLogger.d(TAG, "User selected date: label=$label, index=$index")
+                            showNumpad = false
+                            // "Pick" advances only once the dialog is confirmed.
+                            if (index == 3) showDatePicker = true
+                            else {
+                                viewModel.onDateChipChange(index)
+                                pendingSection = FormSection.Category
                             }
-                        }
-                    }
+                        },
+                        modifier = Modifier.sectionAnchor(FormSection.Date, anchors)
+                    )
 
                     Spacer(Modifier.height(18.dp))
 
-                    // Category chips
                     if (state.categories.isNotEmpty()) {
-                        Column(Modifier.sectionAnchor(FormSection.Category, anchors)) {
-                            FormLabel("Category")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                state.categories.forEach { cat ->
-                                    val active = cat.id == state.categoryId
-                                    val catColor = rememberCategoryColor(cat.colorHex)
-                                    CategoryChip(cat = cat, catColor = catColor, active = active) {
-                                        SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
-                                        viewModel.onCategoryChange(cat.id)
-                                        advanceTo(FormSection.SubCategory)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(18.dp))
-
-                    // Subcategory chips
-                    if (state.subCategories.isNotEmpty()) {
-                        Column(Modifier.sectionAnchor(FormSection.SubCategory, anchors)) {
-                            FormLabel("Sub-category")
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                // None option
-                                val noneActive = state.subCategoryId == null
-                                SubChip(label = "None", active = noneActive) {
-                                    SecureLogger.d(TAG, "User selected: None (no sub-category)")
-                                    viewModel.onSubCategoryChange(null)
-                                    advanceTo(FormSection.Note)
-                                }
-                                state.subCategories.forEach { sub ->
-                                    SubChip(label = sub.name, active = sub.id == state.subCategoryId) {
-                                        SecureLogger.d(TAG, "User selected sub-category: name=${sub.name}, id=${sub.id}")
-                                        viewModel.onSubCategoryChange(sub.id)
-                                        advanceTo(FormSection.Note)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(18.dp))
-
-                    // Note
-                    Column(Modifier.sectionAnchor(FormSection.Note, anchors)) {
-                        FormLabel("Note — optional")
-                        OutlinedTextField(
-                            value = state.note,
-                            onValueChange = viewModel::onNoteChange,
-                            placeholder = { Text("e.g. Dinner with friends", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // The soft keyboard and the numpad must never fight for the
-                                // bottom of the screen.
-                                .onFocusChanged { if (it.isFocused) showNumpad = false },
-                            maxLines = 2,
-                            // A note is one short sentence, so the keyboard offers Done rather
-                            // than a newline key that would leave no way to dismiss it. The
-                            // explicit action is also what stops Compose flagging the multi-line
-                            // field as having no enter action at all.
-                            keyboardOptions = KeyboardOptions(
-                                capitalization = KeyboardCapitalization.Sentences,
-                                imeAction = ImeAction.Done
-                            ),
-                            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor   = MaterialTheme.colorScheme.onSurface,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                                focusedTextColor     = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor   = MaterialTheme.colorScheme.onSurface
-                            )
+                        CategorySection(
+                            categories = state.categories,
+                            selectedId = state.categoryId,
+                            onSelect = { cat ->
+                                SecureLogger.d(TAG, "User selected category: name=${cat.name}, id=${cat.id}")
+                                viewModel.onCategoryChange(cat.id)
+                                advanceTo(FormSection.SubCategory)
+                            },
+                            modifier = Modifier.sectionAnchor(FormSection.Category, anchors)
                         )
                     }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    if (state.subCategories.isNotEmpty()) {
+                        SubCategorySection(
+                            subCategories = state.subCategories,
+                            selectedId = state.subCategoryId,
+                            onSelect = { id ->
+                                SecureLogger.d(TAG, "User selected sub-category: id=$id")
+                                viewModel.onSubCategoryChange(id)
+                                advanceTo(FormSection.Note)
+                            },
+                            modifier = Modifier.sectionAnchor(FormSection.SubCategory, anchors)
+                        )
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+
+                    NoteSection(
+                        note = state.note,
+                        onNoteChange = viewModel::onNoteChange,
+                        onFocused = { showNumpad = false },
+                        onDone = { focusManager.clearFocus() },
+                        modifier = Modifier.sectionAnchor(FormSection.Note, anchors)
+                    )
                     // Clears the floating Save button, which overlays the bottom of the form.
                     Spacer(Modifier.height(84.dp))
                 }
@@ -549,6 +391,276 @@ fun TransactionFormScreen(
             }
         }
     }
+}
+
+// ── Form sections ─────────────────────────────────────────────────────────────
+//
+// Each section is its own composable rather than a block inside TransactionFormScreen.
+// That is not only for readability: the Compose compiler emits one JVM method per
+// composable, and folding all of this into the screen function produced a method with
+// 283 registers, which Android's bytecode verifier rejected outright with a VerifyError
+// the moment the screen was opened. Keep new sections out here too.
+
+@Composable
+private fun FormTopBar(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
+        }
+        Text(
+            title,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        // Saving lives on the floating button over the form. This keeps the row balanced
+        // around the title without a second, permanently greyed-out Save.
+        Spacer(Modifier.width(48.dp))
+    }
+}
+
+@Composable
+private fun TypeToggle(selected: TransactionType, onSelect: (TransactionType) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .padding(3.dp)
+        ) {
+            Row {
+                listOf(TransactionType.EXPENSE, TransactionType.INCOME).forEach { type ->
+                    val active = selected == type
+                    TextButton(
+                        onClick = { onSelect(type) },
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (active) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    ) {
+                        Text(
+                            type.name.lowercase().replaceFirstChar { it.uppercase() },
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The big running total. Tapping anywhere on it reopens the keypad. */
+@Composable
+private fun AmountHero(
+    amount: String,
+    amountColor: Color,
+    hint: String,
+    onTap: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onTap
+            ),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                LocalCurrencyFormat.current.symbol,
+                fontSize = 30.sp,
+                fontFamily = FontFamily.Serif,
+                color = amountColor.copy(alpha = 0.5f),
+                modifier = Modifier.padding(bottom = 8.dp, end = 4.dp)
+            )
+            Text(
+                amount.ifEmpty { "0" },
+                fontSize = 60.sp,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Normal,
+                color = if (amount.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else amountColor,
+                lineHeight = 60.sp
+            )
+        }
+        Text(
+            hint,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.3.sp
+        )
+    }
+}
+
+@Composable
+private fun DateSection(
+    chips: List<Pair<String, LocalDate>>,
+    selectedIndex: Int,
+    pickedDate: LocalDate,
+    onChipClick: (index: Int, label: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dayMonth = remember { DateTimeFormatter.ofPattern("MMM d") }
+    Column(modifier) {
+        FormLabel("Date")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            chips.forEachIndexed { index, (label, date) ->
+                val active = selectedIndex == index
+                ChipButton(
+                    active = active,
+                    onClick = { onChipClick(index, label) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            // The last chip is "Pick": it shows the chosen date once there
+                            // is one, and an ellipsis until then.
+                            when {
+                                index < 3 -> date.format(dayMonth)
+                                selectedIndex == 3 -> pickedDate.format(dayMonth)
+                                else -> "···"
+                            },
+                            fontSize = 10.sp,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CategorySection(
+    categories: List<Category>,
+    selectedId: Long?,
+    onSelect: (Category) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        FormLabel("Category")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            categories.forEach { cat ->
+                CategoryChip(
+                    cat = cat,
+                    catColor = rememberCategoryColor(cat.colorHex),
+                    active = cat.id == selectedId,
+                    onClick = { onSelect(cat) }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SubCategorySection(
+    subCategories: List<SubCategory>,
+    selectedId: Long?,
+    onSelect: (Long?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        FormLabel("Sub-category")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            SubChip(label = "None", active = selectedId == null) { onSelect(null) }
+            subCategories.forEach { sub ->
+                SubChip(label = sub.name, active = sub.id == selectedId) { onSelect(sub.id) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteSection(
+    note: String,
+    onNoteChange: (String) -> Unit,
+    onFocused: () -> Unit,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        FormLabel("Note — optional")
+        OutlinedTextField(
+            value = note,
+            onValueChange = onNoteChange,
+            placeholder = { Text("e.g. Dinner with friends", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
+            modifier = Modifier
+                .fillMaxWidth()
+                // The soft keyboard and the numpad must never fight for the bottom of
+                // the screen.
+                .onFocusChanged { if (it.isFocused) onFocused() },
+            maxLines = 2,
+            // A note is one short sentence, so the keyboard offers Done rather than a
+            // newline key that would leave no way to dismiss it. The explicit action is
+            // also what stops Compose flagging the multi-line field as having no enter
+            // action at all.
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { onDone() }),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor   = MaterialTheme.colorScheme.onSurface,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                focusedTextColor     = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor   = MaterialTheme.colorScheme.onSurface
+            )
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FormDatePickerDialog(
+    date: LocalDate,
+    /** Null when the picker was confirmed with nothing selected — the date then stays as it was. */
+    onConfirm: (LocalDate?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm(
+                    pickerState.selectedDateMillis
+                        ?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
+                )
+            }) { Text("OK") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    ) { DatePicker(state = pickerState) }
 }
 
 /**

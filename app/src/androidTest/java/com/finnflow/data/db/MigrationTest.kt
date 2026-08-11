@@ -61,6 +61,59 @@ class MigrationTest {
     }
 
     @Test
+    fun migrate3To4_addsSortOrderColumnsDefaultedToZero() {
+        helper.createDatabase(TEST_DB, 3).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO categories (id, name, type, iconName, colorHex, isArchived)
+                VALUES (1, 'Food', 'EXPENSE', 'utensils', '#C44536', 0)
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO sub_categories (id, categoryId, name, isArchived)
+                VALUES (1, 1, 'Groceries', 0)
+                """.trimIndent()
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, *AppDatabase.MIGRATIONS)
+
+        // Zero across the board is the intended backfill: every list query falls back to name,
+        // so an existing install keeps the alphabetical order it already had.
+        db.query("SELECT name, sortOrder FROM categories WHERE id = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Food", cursor.getString(0))
+            assertEquals(0, cursor.getInt(1))
+        }
+        db.query("SELECT name, sortOrder FROM sub_categories WHERE id = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Groceries", cursor.getString(0))
+            assertEquals(0, cursor.getInt(1))
+        }
+    }
+
+    @Test
+    fun migrate2To4_runsBothMigrationsInSequence() {
+        helper.createDatabase(TEST_DB, 2).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO categories (id, name, type, iconName, colorHex)
+                VALUES (1, 'Food', 'EXPENSE', 'utensils', '#C44536')
+                """.trimIndent()
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(TEST_DB, 4, true, *AppDatabase.MIGRATIONS)
+
+        db.query("SELECT isArchived, sortOrder FROM categories WHERE id = 1").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+            assertEquals(0, cursor.getInt(1))
+        }
+    }
+
+    @Test
     fun migrate2To3_leavesTransactionsUntouched() {
         helper.createDatabase(TEST_DB, 2).use { db ->
             db.execSQL(

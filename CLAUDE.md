@@ -30,7 +30,7 @@ MVVM + Clean Architecture, single-module Android app (`com.finnflow`).
 **Key constraints:**
 - Min SDK 26, Target SDK / compile SDK 35, Java 17, Kotlin 2.0.21, AGP 8.5.2
 - KSP (not kapt) for Hilt and Room annotation processing
-- Room schema `version = 3`, no destructive-migration fallback — every schema change must bump the
+- Room schema `version = 4`, no destructive-migration fallback — every schema change must bump the
   version and register a `Migration` in `AppDatabase.MIGRATIONS` (schemas exported to `app/schemas`),
   with a `MigrationTestHelper` test under `src/androidTest`
 - `fromAccountId`/`toAccountId` on `transactions` table reserved (null) for future accounts feature
@@ -40,6 +40,9 @@ MVVM + Clean Architecture, single-module Android app (`com.finnflow`).
   (`getCategoriesByType`, `getActiveSubCategories`) exclude archived rows; lookup queries
   (`getAllCategories`, `getAllSubCategories`) must keep returning them so past transactions stay
   labelled, and Stats keeps reporting them wherever they have amounts
+- Category and sub-category lists are ordered by `sortOrder ASC, name ASC`. Reordering rewrites
+  every position in the list at once (`CategoryDao.setCategoryOrder` / `setSubCategoryOrder`) —
+  a partial write would interleave with the rows still at the default 0
 - Packaging exclusions for `META-INF/LICENSE.md`, `LICENSE-notice.md`, `NOTICE.md` (MockK conflict)
 - `buildConfig = true`; release build is minified via ProGuard
 
