@@ -30,7 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.finnflow.ui.AmountStyle
 import com.finnflow.ui.CurrencyFormat
 import com.finnflow.ui.LocalCurrencyFormat
-import com.finnflow.ui.components.periodSwipe
+import com.finnflow.ui.components.PeriodSwipeBox
 import com.finnflow.ui.theme.FinnFlowTheme
 import com.finnflow.ui.theme.adaptForDark
 import com.finnflow.ui.theme.parseHexColor
@@ -54,78 +54,76 @@ fun YearlyScreen(viewModel: YearlyViewModel = hiltViewModel()) {
     }
     val allExpanded = expandableMonths.isNotEmpty() &&
         expandedMonths.containsAll(expandableMonths)
-    val swipeYear = periodSwipe(
+    PeriodSwipeBox(
         onNext = viewModel::nextYear,
-        onPrevious = viewModel::previousYear
-    )
-
-    // One scroll for the whole page: the hero and averages strip scroll away with the month
-    // list rather than staying pinned above it.
-    LazyColumn(
+        onPrevious = viewModel::previousYear,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .then(swipeYear)
     ) {
-        item(key = "title") {
-            Text(
-                "Yearly",
-                fontFamily = FontFamily.Serif,
-                fontSize = 26.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 2.dp)
-            )
-        }
-
-        item(key = "year-nav") {
-            YearNavigator(
-                year = state.year,
-                onPrevious = viewModel::previousYear,
-                onNext = viewModel::nextYear
-            )
-        }
-
-        item(key = "hero") { HeroCard(state = state) }
-
-        if (state.isLoading) {
-            item(key = "loading") {
-                Box(
-                    Modifier.fillMaxWidth().padding(48.dp),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+        // One scroll for the whole page: the hero and averages strip scroll away with the month
+        // list rather than staying pinned above it.
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            item(key = "title") {
+                Text(
+                    "Yearly",
+                    fontFamily = FontFamily.Serif,
+                    fontSize = 26.sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 2.dp)
+                )
             }
-            return@LazyColumn
-        }
 
-        item(key = "averages") {
-            AvgStrip(avgIn = state.avgMonthlyIncome, avgOut = state.avgMonthlyExpense)
-        }
+            item(key = "year-nav") {
+                YearNavigator(
+                    year = state.year,
+                    onPrevious = viewModel::previousYear,
+                    onNext = viewModel::nextYear
+                )
+            }
 
-        item(key = "column-header") {
-            MonthListHeader(
-                allExpanded = allExpanded,
-                canExpand = expandableMonths.isNotEmpty(),
-                onToggleAll = { viewModel.setAllExpanded(!allExpanded) }
-            )
-        }
+            item(key = "hero") { HeroCard(state = state) }
 
-        items(12, key = { "month-$it" }) { index ->
-            val monthKey = "%02d".format(index + 1)
-            MonthRow(
-                monthName = Month.of(index + 1).getDisplayName(TextStyle.FULL, Locale.getDefault()),
-                income = state.incomeByMonth.firstOrNull { it.month == monthKey }?.total ?: 0.0,
-                expense = state.expenseByMonth.firstOrNull { it.month == monthKey }?.total ?: 0.0,
-                topIncome = state.topIncomeByMonth[monthKey].orEmpty(),
-                topExpense = state.topExpenseByMonth[monthKey].orEmpty(),
-                isCurrent = index == currentMonthIndex,
-                isExpanded = monthKey in expandedMonths,
-                onToggle = { viewModel.toggleMonth(monthKey) }
-            )
-        }
+            if (state.isLoading) {
+                item(key = "loading") {
+                    Box(
+                        Modifier.fillMaxWidth().padding(48.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator() }
+                }
+                return@LazyColumn
+            }
 
-        item(key = "bottom-spacer") { Spacer(Modifier.height(80.dp)) }
+            item(key = "averages") {
+                AvgStrip(avgIn = state.avgMonthlyIncome, avgOut = state.avgMonthlyExpense)
+            }
+
+            item(key = "column-header") {
+                MonthListHeader(
+                    allExpanded = allExpanded,
+                    canExpand = expandableMonths.isNotEmpty(),
+                    onToggleAll = { viewModel.setAllExpanded(!allExpanded) }
+                )
+            }
+
+            items(12, key = { "month-$it" }) { index ->
+                val monthKey = "%02d".format(index + 1)
+                MonthRow(
+                    monthName = Month.of(index + 1).getDisplayName(TextStyle.FULL, Locale.getDefault()),
+                    income = state.incomeByMonth.firstOrNull { it.month == monthKey }?.total ?: 0.0,
+                    expense = state.expenseByMonth.firstOrNull { it.month == monthKey }?.total ?: 0.0,
+                    topIncome = state.topIncomeByMonth[monthKey].orEmpty(),
+                    topExpense = state.topExpenseByMonth[monthKey].orEmpty(),
+                    isCurrent = index == currentMonthIndex,
+                    isExpanded = monthKey in expandedMonths,
+                    onToggle = { viewModel.toggleMonth(monthKey) }
+                )
+            }
+
+            item(key = "bottom-spacer") { Spacer(Modifier.height(80.dp)) }
+        }
     }
 }
 
