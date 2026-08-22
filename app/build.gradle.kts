@@ -36,8 +36,8 @@ android {
         targetSdk = 35
         // Date-stamped release: 0.YYMMDD.0, with the same date as the version code so the two
         // can never drift. The code must only ever increase, which a date guarantees.
-        versionCode = 260811
-        versionName = "0.260811.0"
+        versionCode = 260822
+        versionName = "0.260822.0"
 
         testInstrumentationRunner = "com.finnflow.HiltTestRunner"
 
