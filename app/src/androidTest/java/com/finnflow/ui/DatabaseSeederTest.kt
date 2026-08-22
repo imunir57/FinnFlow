@@ -5,8 +5,11 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.finnflow.data.model.TransactionType
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -17,10 +20,15 @@ import javax.inject.Provider
 @RunWith(AndroidJUnit4::class)
 class DatabaseSeederTest {
 
+    private companion object {
+        /** Long enough for a cold emulator, short enough to fail rather than hang. */
+        const val SEED_TIMEOUT_MS = 10_000L
+    }
+
     private lateinit var db: AppDatabase
 
     @Before
-    fun setup() = runTest {
+    fun setup() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
         // Build with a real seeder so the callback fires on onCreate
@@ -32,8 +40,20 @@ class DatabaseSeederTest {
         // Trigger onCreate by touching the database
         db.openHelper.writableDatabase
 
-        // Give the seeder coroutine time to complete
-        kotlinx.coroutines.delay(200)
+        // The seeder runs on its own IO coroutine and reports no completion, so wait for the
+        // last row it writes to appear. Not `runTest` + `delay`: that skips delays outright,
+        // and every assertion here then read a table still being filled in.
+        withTimeout(SEED_TIMEOUT_MS) {
+            while (db.categoryDao().getAllCategories().first().size < SeedData.categories.size) {
+                delay(20)
+            }
+            val lastCategory = db.categoryDao().getAllCategories().first()
+                .first { it.name == SeedData.categories.last().name }
+            val lastSubCount = SeedData.categories.last().subCategories.size
+            while (db.categoryDao().getSubCategories(lastCategory.id).first().size < lastSubCount) {
+                delay(20)
+            }
+        }
     }
 
     @After
